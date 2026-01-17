@@ -155,7 +155,7 @@
             required
             disabled={busy}
           />
-          <div class="hint">Commissioner-issued. One use.</div>
+          <div class="hint">Commissioner issued. One use.</div>
         </label>
       {:else}
         <label class="field">

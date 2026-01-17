@@ -55,6 +55,7 @@ export const actions = {
 
     const form = await request.formData();
 
+    // ---- Top 10 IDs ----
     let top10Ids;
     try {
       top10Ids = JSON.parse(String(form.get('top10Ids') || '[]')).map(String);
@@ -62,14 +63,82 @@ export const actions = {
       return fail(400, { message: 'Invalid top10 payload.' });
     }
 
-    // Validate exactly 10 unique picks
     top10Ids = top10Ids.filter(Boolean).slice(0, 10);
     const uniq = new Set(top10Ids);
     if (top10Ids.length !== 10 || uniq.size !== 10) {
       return fail(400, { message: 'You must pick exactly 10 unique drivers.' });
     }
 
-    const payload = { top10Ids };
+    // ---- Top 10 Snapshot (optional but we want it) ----
+    let top10Snapshot = null;
+    const top10SnapshotRaw = form.get('top10Snapshot');
+
+    if (typeof top10SnapshotRaw === 'string' && top10SnapshotRaw.trim()) {
+      try {
+        const parsed = JSON.parse(top10SnapshotRaw);
+
+        if (!Array.isArray(parsed)) throw new Error('snapshot not array');
+
+        // Normalize to {id,name,carNumber} and keep first 10 only
+        const normalized = parsed
+          .slice(0, 10)
+          .map((x) => ({
+            id: x?.id != null ? String(x.id) : '',
+            name: x?.name != null && String(x.name).trim() ? String(x.name).trim() : null,
+            carNumber:
+              x?.carNumber != null && String(x.carNumber).trim()
+                ? String(x.carNumber).trim()
+                : null
+          }))
+          .filter((x) => x.id);
+
+        // Snapshot should match top10Ids order exactly (best effort).
+        // If it doesn’t, we still store it but re-order to match ids.
+        const map = new Map(normalized.map((x) => [String(x.id), x]));
+        const reordered = top10Ids.map((id) => map.get(String(id)) || { id, name: null, carNumber: null });
+
+        top10Snapshot = reordered;
+      } catch {
+        // Don’t hard-fail; we can still save the entry without snapshot
+        top10Snapshot = null;
+      }
+    }
+
+    // ---- Chaos Car (optional) + snapshot ----
+    const chaosCarIdRaw = form.get('chaosCarId');
+    const chaosCarId =
+      typeof chaosCarIdRaw === 'string' && chaosCarIdRaw.trim()
+        ? chaosCarIdRaw.trim()
+        : null;
+
+    if (chaosCarId && top10Ids.includes(chaosCarId)) {
+      return fail(400, { message: 'Chaos car can’t be one of your Top 10 picks.' });
+    }
+
+    let chaosCarSnapshot = null;
+
+    if (chaosCarId) {
+      const chaosCarNameRaw = form.get('chaosCarName');
+      const chaosCarNumberRaw = form.get('chaosCarNumber');
+
+      const chaosCarName =
+        typeof chaosCarNameRaw === 'string' && chaosCarNameRaw.trim()
+          ? chaosCarNameRaw.trim()
+          : '';
+
+      const chaosCarNumber =
+        typeof chaosCarNumberRaw === 'string' && chaosCarNumberRaw.trim()
+          ? chaosCarNumberRaw.trim()
+          : '';
+
+      chaosCarSnapshot = {
+        id: chaosCarId,
+        name: chaosCarName || null,
+        carNumber: chaosCarNumber || null
+      };
+    }
+
+    const payload = { top10Ids, top10Snapshot, chaosCarId, chaosCarSnapshot };
 
     await upsertEntryForUser({
       db,

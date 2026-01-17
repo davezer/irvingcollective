@@ -6,11 +6,14 @@
 
   let query = '';
 
+  // Detect whether host provided a right-side panel
+  $: hasSidePanel = !!$$slots.sidePanel;
+
   $: selectedIds = new Set((value ?? []).map((x) => x.id));
   $: available = (options ?? []).filter((x) => !selectedIds.has(x.id));
 
   $: filteredAvailable = available.filter((x) =>
-    x.name.toLowerCase().includes(query.toLowerCase())
+    (x?.name || '').toLowerCase().includes(query.toLowerCase())
   );
 
   // Keep render snappy when not searching
@@ -51,11 +54,11 @@
   }
 </script>
 
-<div class="grid">
+<div class="grid" class:has-side={hasSidePanel}>
   <!-- AVAILABLE -->
   <section class="card card--tight">
     <div class="head">
-      <div>
+      <div class="head-left">
         <div class="kicker">Driver pool</div>
         <h3 class="title">Available</h3>
       </div>
@@ -117,7 +120,7 @@
   <!-- PODIUM -->
   <section class="card card--tight">
     <div class="head">
-      <div>
+      <div class="head-left">
         <div class="kicker">Your picks</div>
         <h3 class="title">Top {max}</h3>
       </div>
@@ -125,27 +128,25 @@
       <div class="head-right">
         <span class="pill pill--gold">{value.length}/{max} selected</span>
 
-        <button
-          class="btn btn--ghost"
-          type="button"
-          on:click={clearAll}
-          disabled={locked || value.length === 0}
-          title="Clear all"
-        >
-          Clear
-        </button>
+        <div class="actions-row">
+          <button
+            class="btn btn--ghost"
+            type="button"
+            on:click={clearAll}
+            disabled={locked || value.length === 0}
+            title="Clear all"
+          >
+            Clear
+          </button>
 
-        <!-- NEW: host page can inject actions (e.g., Save) -->
-        <slot name="podiumActions" />
+          <slot name="podiumActions" />
+        </div>
       </div>
     </div>
 
-
     <div class="panel">
       {#if value.length === 0}
-        <div class="empty">
-          Pick {max} drivers from the left.
-        </div>
+        <div class="empty">Pick {max} drivers from the left.</div>
       {:else}
         {#each value as item, idx (item.id)}
           <div class="row row--selected">
@@ -196,23 +197,56 @@
     <div class="foot muted">
       Order matters. You’re not picking favorites — you’re picking finishes.
     </div>
+
+    {#if $$slots.statusLine}
+      <div class="statusline">
+        <slot name="statusLine" />
+      </div>
+    {/if}
   </section>
+
+  <!-- OPTIONAL SIDE PANEL -->
+  {#if hasSidePanel}
+    <section class="card card--tight">
+      <slot name="sidePanel" />
+    </section>
+  {/if}
 </div>
 
 <style>
+  /* === GRID LAYOUT === */
   .grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-top: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
   }
 
+  .grid.has-side {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid > section {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 560px;
+  }
+
+  /* === HEADER === */
   .head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
     margin-bottom: 12px;
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+
+  .head-left {
+    min-width: 0;
   }
 
   .title {
@@ -220,36 +254,38 @@
     font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Garamond, Georgia, serif;
     letter-spacing: 0.3px;
     font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .head-right {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
   }
 
-  :global(.btn) {
-  padding: 10px 12px;
-  border-radius: 12px;
-  line-height: 1;
-}
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
 
-/* Optional: make the header pills align nicely */
-:global(.pill) {
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-}
-
+  /* === PANEL === */
   .panel {
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 14px;
     overflow: hidden;
     background: rgba(0,0,0,0.22);
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
+  /* === ROWS === */
   .row {
     display: flex;
     justify-content: space-between;
@@ -257,6 +293,7 @@
     gap: 12px;
     padding: 10px 10px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    min-width: 0;
   }
   .row:last-child { border-bottom: none; }
 
@@ -313,14 +350,21 @@
 
   .foot {
     margin-top: 10px;
+    flex: 0 0 auto;
   }
 
-  /* Make the input sit nicely */
+  .statusline {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    opacity: 0.9;
+    flex: 0 0 auto;
+  }
+
   .input {
     margin-bottom: 12px;
   }
 
-  /* Buttons: tighten in this component */
   :global(.btn) {
     padding: 10px 12px;
     border-radius: 12px;
@@ -328,9 +372,23 @@
     line-height: 1;
   }
 
-  @media (max-width: 920px) {
-    .grid {
-      grid-template-columns: 1fr;
+  :global(.pill) {
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 1100px) {
+    .grid.has-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 780px) {
+    .grid,
+    .grid.has-side {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

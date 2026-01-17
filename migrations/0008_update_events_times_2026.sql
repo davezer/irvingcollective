@@ -1,6 +1,5 @@
 -- migrations/0008_update_event_times_2026.sql
 -- NOTE: Times are Unix epoch seconds (UTC).
--- Lock is set to 1 hour before start (lock_at = start_at - 3600).
 
 UPDATE events
 SET

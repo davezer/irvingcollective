@@ -21,7 +21,6 @@
     if (!item) return;
     if (value.some((x) => x.id === item.id)) return;
     if (value.length >= max) return;
-
     value = [...value, item];
   }
 
@@ -46,28 +45,34 @@
     value = next;
   }
 
-  // Optional: quick clear (nice for testing)
   function clearAll() {
     if (locked) return;
     value = [];
   }
 </script>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+<div class="grid">
   <!-- AVAILABLE -->
-  <div class="card">
-    <h3>Available</h3>
+  <section class="card card--tight">
+    <div class="head">
+      <div>
+        <div class="kicker">Driver pool</div>
+        <h3 class="title">Available</h3>
+      </div>
+
+      <span class="pill">{filteredAvailable.length} shown</span>
+    </div>
 
     <input
-      placeholder="Search..."
+      class="input"
+      placeholder="Search drivers…"
       bind:value={query}
       disabled={locked}
-      style="width:100%; margin: 8px 0;"
     />
 
-    <div style="border: 1px solid #ddd; border-radius: 6px; overflow:hidden;">
+    <div class="panel">
       {#if renderAvailable.length === 0}
-        <div style="opacity:.6; padding: 12px;">
+        <div class="empty">
           {#if query}
             No matches.
           {:else}
@@ -76,22 +81,22 @@
         </div>
       {:else}
         {#each renderAvailable as item (item.id)}
-          <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding:10px; border-bottom:1px solid #eee;">
-            <div style="min-width:0;">
-              <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                {item.name}
-                {#if item.carNumber}
-                  <span style="opacity:.6;"> #{item.carNumber}</span>
-                {/if}
-              </div>
+          <div class="row">
+            <div class="row-left">
+              <div class="name" title={item.name}>{item.name}</div>
+              {#if item.carNumber}
+                <div class="meta">Car #{item.carNumber}</div>
+              {:else}
+                <div class="meta">&nbsp;</div>
+              {/if}
             </div>
 
             <button
+              class="btn"
               type="button"
               on:click={() => add(item)}
               disabled={locked || value.length >= max}
               title="Add"
-              style="min-width: 34px;"
             >
               +
             </button>
@@ -100,45 +105,86 @@
       {/if}
     </div>
 
-    <div style="opacity:.7; margin-top:8px;">
+    <div class="foot muted">
       {#if !query && filteredAvailable.length > renderAvailable.length}
         Showing {renderAvailable.length} of {filteredAvailable.length}. Search to see more.
+      {:else}
+        Tip: search by last name.
       {/if}
     </div>
-  </div>
+  </section>
 
   <!-- PODIUM -->
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 style="margin:0;">Top {max} Podium</h3>
-      <button type="button" on:click={clearAll} disabled={locked || value.length === 0} title="Clear all">
-        Clear
-      </button>
+  <section class="card card--tight">
+    <div class="head">
+      <div>
+        <div class="kicker">Your picks</div>
+        <h3 class="title">Top {max}</h3>
+      </div>
+
+      <div class="head-right">
+        <span class="pill pill--gold">{value.length}/{max} selected</span>
+
+        <button
+          class="btn btn--ghost"
+          type="button"
+          on:click={clearAll}
+          disabled={locked || value.length === 0}
+          title="Clear all"
+        >
+          Clear
+        </button>
+
+        <!-- NEW: host page can inject actions (e.g., Save) -->
+        <slot name="podiumActions" />
+      </div>
     </div>
 
-    <div style="opacity:.7; margin-top:6px;">Use ↑ / ↓ to reorder. Click ✕ to remove.</div>
 
-    <div style="margin-top:10px; border: 1px solid #ddd; border-radius: 6px; overflow:hidden;">
+    <div class="panel">
       {#if value.length === 0}
-        <div style="opacity:.6; padding: 12px;">Pick {max} drivers from the left.</div>
+        <div class="empty">
+          Pick {max} drivers from the left.
+        </div>
       {:else}
         {#each value as item, idx (item.id)}
-          <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding:10px; border-bottom:1px solid #eee;">
-            <div style="min-width:0;">
-              <strong>{idx + 1}.</strong>
-              <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                {item.name}
-              </span>
+          <div class="row row--selected">
+            <div class="row-left">
+              <div class="name">
+                <span class="rank">{idx + 1}</span>
+                <span title={item.name}>{item.name}</span>
+              </div>
+              <div class="meta">Finish position</div>
             </div>
 
-            <div style="display:flex; gap:6px; align-items:center;">
-              <button type="button" on:click={() => moveUp(idx)} disabled={locked || idx === 0} title="Move up">
+            <div class="controls">
+              <button
+                class="btn btn--ghost"
+                type="button"
+                on:click={() => moveUp(idx)}
+                disabled={locked || idx === 0}
+                title="Move up"
+              >
                 ↑
               </button>
-              <button type="button" on:click={() => moveDown(idx)} disabled={locked || idx === value.length - 1} title="Move down">
+
+              <button
+                class="btn btn--ghost"
+                type="button"
+                on:click={() => moveDown(idx)}
+                disabled={locked || idx === value.length - 1}
+                title="Move down"
+              >
                 ↓
               </button>
-              <button type="button" on:click={() => remove(item.id)} disabled={locked} title="Remove">
+
+              <button
+                class="btn btn--danger"
+                type="button"
+                on:click={() => remove(item.id)}
+                disabled={locked}
+                title="Remove"
+              >
                 ✕
               </button>
             </div>
@@ -147,6 +193,144 @@
       {/if}
     </div>
 
-    <div style="margin-top: 10px;">Selected: {value.length}/{max}</div>
-  </div>
+    <div class="foot muted">
+      Order matters. You’re not picking favorites — you’re picking finishes.
+    </div>
+  </section>
 </div>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 14px;
+  }
+
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .title {
+    margin: 2px 0 0 0;
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Garamond, Georgia, serif;
+    letter-spacing: 0.3px;
+    font-size: 18px;
+  }
+
+  .head-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  :global(.btn) {
+  padding: 10px 12px;
+  border-radius: 12px;
+  line-height: 1;
+}
+
+/* Optional: make the header pills align nicely */
+:global(.pill) {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+  .panel {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.22);
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .row:last-child { border-bottom: none; }
+
+  .row--selected {
+    background: linear-gradient(180deg, rgba(214,177,94,0.10), rgba(255,255,255,0.02));
+  }
+
+  .row-left {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .name {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1px solid rgba(214,177,94,0.35);
+    background: rgba(214,177,94,0.10);
+    color: #f5d58a;
+    font-weight: 800;
+    flex: 0 0 auto;
+  }
+
+  .meta {
+    font-size: 12px;
+    opacity: 0.65;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+
+  .empty {
+    padding: 14px;
+    opacity: 0.65;
+  }
+
+  .foot {
+    margin-top: 10px;
+  }
+
+  /* Make the input sit nicely */
+  .input {
+    margin-bottom: 12px;
+  }
+
+  /* Buttons: tighten in this component */
+  :global(.btn) {
+    padding: 10px 12px;
+    border-radius: 12px;
+    min-width: 42px;
+    line-height: 1;
+  }
+
+  @media (max-width: 920px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

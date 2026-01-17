@@ -1,5 +1,7 @@
 <script>
+  import Card from '$lib/ui/Card.svelte';
   export let data;
+  
 
   let msg = '';
   let newCode = '';
@@ -24,6 +26,14 @@
     msg = `Reset code for ${username}. Copy it now — it’s shown once.`;
   }
 </script>
+
+<Card variant="glow">
+  <div class="kicker">Commissioner</div>
+  <h1 class="h1">Users</h1>
+  <p class="subtle" style="margin-top:10px;">Handle business. Quietly.</p>
+</Card>
+
+<div style="height:16px;"></div>
 
 <main style="max-width: 900px; margin: 40px auto; padding: 0 16px;">
   <h1>Users</h1>

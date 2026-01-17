@@ -1,4 +1,5 @@
 <script>
+  import Card from '$lib/ui/Card.svelte';
   export let data;
 
   let role = 'gm';
@@ -34,6 +35,13 @@
     return new Date(ts * 1000).toLocaleString('en-US', { timeZone: 'America/New_York' });
   }
 </script>
+<Card variant="glow">
+  <div class="kicker">Commissioner</div>
+  <h1 class="h1">Invites</h1>
+  <p class="subtle" style="margin-top:10px;">Private access only.</p>
+</Card>
+
+<div style="height:16px;"></div>
 
 <main style="max-width: 980px; margin: 40px auto; padding: 0 16px;">
   <h1>Invites</h1>

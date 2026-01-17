@@ -1,61 +1,134 @@
 <script>
-  import { formatET, isLocked } from '$lib/time.js';
-  export let data;
+  import Card from '$lib/ui/Card.svelte';
+  import SectionHeader from '$lib/ui/SectionHeader.svelte';
+  import Pill from '$lib/ui/Pill.svelte';
 
-  const label = (t) => ({
-    daytona: 'Daytona',
-    masters: 'Masters',
-    derby: 'Derby',
-    madness: 'Madness',
-    worldcup: 'World Cup'
-  }[t] || t);
+  export let data;
+  const { events = [] } = data;
+
+  const nowSec = () => Math.floor(Date.now() / 1000);
+
+  function statusFor(e) {
+    const now = nowSec();
+    const lock = Number(e.lock_at);
+    if (now >= lock) return { text: 'Locked', tone: 'red' };
+    return { text: 'Upcoming', tone: 'green' };
+  }
+
+  function pretty(ts) {
+    return new Date(Number(ts) * 1000).toLocaleString();
+  }
 </script>
 
-<main class="wrap">
-  <header class="head">
-    <h1>Games</h1>
-    <p class="sub">All lock times shown in Eastern Time.</p>
-  </header>
+<Card variant="glow">
+  <div class="kicker">Offseason</div>
+  <h1 class="h1">Games</h1>
+  <p class="subtle" style="margin-top:10px;">
+    Picks close at lock time. After that… no mercy.
+  </p>
+</Card>
 
-  <section class="grid">
-    {#each data.events as e}
-      <a class="card" href={`/games/${e.slug}`}>
-        <div class="top">
-          <div class="title">{e.name}</div>
-          <div class="pill {isLocked(e.lock_at) ? 'locked' : 'open'}">
-            {isLocked(e.lock_at) ? 'Locked' : 'Open'}
-          </div>
-        </div>
+<div style="height:16px;"></div>
 
-        <div class="meta">
-          <div class="row">
-            <span class="k">Type</span>
-            <span class="v">{label(e.type)}</span>
+<Card variant="default">
+  <SectionHeader kicker="Schedule" title="All Events">
+    <Pill tone="gold">{events.length} events</Pill>
+  </SectionHeader>
+
+  <div class="grid" style="margin-top: 14px;">
+    {#if events.length === 0}
+      <div class="muted">No events yet.</div>
+    {:else}
+      {#each events as e (e.id)}
+        {@const st = statusFor(e)}
+
+        <a class="event" href={`/games/${e.slug}`}>
+          <div class="event-top">
+            <div class="event-name">{e.name}</div>
+            <Pill tone={st.tone}>{st.text}</Pill>
           </div>
-          <div class="row">
-            <span class="k">Lock</span>
-            <span class="v">{formatET(e.lock_at)}</span>
+
+          <div class="event-meta">
+            <span class="muted">Locks</span>
+            <span class="subtle">{pretty(e.lock_at)}</span>
           </div>
-        </div>
-      </a>
-    {/each}
-  </section>
-</main>
+
+          <div class="event-meta">
+            <span class="muted">Type</span>
+            <span class="subtle">{e.type}</span>
+          </div>
+
+          <div class="event-cta">
+            <span class="cta">Enter →</span>
+          </div>
+        </a>
+      {/each}
+    {/if}
+  </div>
+</Card>
 
 <style>
-  .wrap { max-width: 980px; margin: 40px auto; padding: 0 16px; }
-  .head { margin-bottom: 18px; }
-  .sub { margin: 6px 0 0; opacity: .7; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-  .card { display: block; padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); text-decoration: none; color: inherit; }
-  .card:hover { border-color: rgba(255,255,255,.22); }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .title { font-weight: 700; }
-  .pill { font-size: 12px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); opacity: .9; }
-  .pill.open { }
-  .pill.locked { opacity: .6; }
-  .meta { margin-top: 10px; display: grid; gap: 6px; opacity: .8; }
-  .row { display: flex; justify-content: space-between; gap: 12px; }
-  .k { opacity: .75; }
-  .v { font-variant-numeric: tabular-nums; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .event {
+    text-decoration: none;
+    color: inherit;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.22);
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    transition: transform 0.10s ease, border-color 0.2s ease, background 0.2s ease;
+    display: grid;
+    gap: 10px;
+  }
+
+  .event:hover {
+    transform: translateY(-1px);
+    border-color: rgba(214,177,94,0.28);
+    background: rgba(214,177,94,0.06);
+  }
+
+  .event-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .event-name {
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Garamond, Georgia, serif;
+    letter-spacing: 0.2px;
+    font-size: 18px;
+  }
+
+  .event-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 10px;
+  }
+
+  .event-cta {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+  }
+
+  .cta {
+    color: rgba(245,213,138,0.95);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
 </style>

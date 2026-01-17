@@ -15,6 +15,6 @@
   <hr style="margin: 28px 0; opacity:.2;" />
 
   <p style="opacity:.85;">
-    Next up: Games list + Daytona entry.
+    Next up: Daytona 500
   </p>
 </main>

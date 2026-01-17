@@ -170,21 +170,25 @@
 
           <div class="spacer-sm"></div>
 
-          <PodiumPicker {options} bind:value={top10} {locked} max={10} />
-
-          <input type="hidden" name="top10Ids" value={top10IdsJson} />
-
-          <div class="actions">
-            <button class="btn" type="submit" disabled={locked || top10.length !== 10}>
+          <PodiumPicker {options} bind:value={top10} {locked} max={10}>
+            <button
+              slot="podiumActions"
+              class="btn btn--vip"
+              type="submit"
+              disabled={locked || top10.length !== 10}
+              title={top10.length !== 10 ? 'Pick exactly 10 to save' : 'Save entry'}
+            >
               Save entry
             </button>
-
-            {#if top10.length !== 10}
+          </PodiumPicker>
+          {#if top10.length !== 10}
               <span class="muted">Pick exactly 10 to submit.</span>
             {:else}
               <span class="muted">Locked at submission time.</span>
             {/if}
-          </div>
+          <input type="hidden" name="top10Ids" value={top10IdsJson} />
+
+          
         </div>
       </form>
     {/if}

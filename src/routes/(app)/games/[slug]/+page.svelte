@@ -11,6 +11,11 @@
 	// Make these reactive so enhance(update) actually refreshes them
 	let event, locked, entry;
 	$: ({ event, locked, entry } = data);
+  $: if (entry && !chaosTouched) {
+  const serverChaos = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+  chaosCarId = serverChaos;
+  lastSavedChaosId = serverChaos;
+}
 
 	let loading = true;
 	let loadError = '';
@@ -18,9 +23,12 @@
 
 	// Selected picks (objects)
 	let top10 = [];
+  $: top10IdSet = new Set(top10.map((x) => String(x.id)));
+  $: chaosOptions = options.filter((o) => !top10IdSet.has(String(o.id)));
 
 	// Chaos car (single id)
-	let chaosCarId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+	let chaosCarId = '';
+  let chaosTouched = false;
 
 	// Save UX
 	let saving = false;
@@ -28,8 +36,8 @@
 	let savedPulse = false;
 
 	// Track "what the server last confirmed" so dirty works correctly
-	let lastSavedIds = (entry?.payload?.top10Ids || []).map(String);
-	let lastSavedChaosId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+	let lastSavedIds = [];
+  let lastSavedChaosId = '';
 
 	// Current ids (in order)
 	$: currentIds = top10.map((x) => String(x.id));
@@ -65,6 +73,23 @@
 
 	let pendingIds = [];
 	applySaved(entry?.payload);
+
+  let hydratedEntryRowId = null;
+
+$: if (entry?.id && entry.id !== hydratedEntryRowId) {
+  hydratedEntryRowId = entry.id;
+
+  // Hydrate saved Top10 → pendingIds (then resolves to option objects after options load)
+  applySaved(entry.payload);
+
+  // Hydrate saved chaos
+  chaosCarId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+
+  // Hydrate server-confirmed snapshots used by "dirty"
+  lastSavedIds = (entry?.payload?.top10Ids || []).map(String);
+  lastSavedChaosId = chaosCarId;
+}
+
 
 	async function fetchOptionsWithTimeout() {
 		loading = true;
@@ -119,9 +144,10 @@
 	});
 
 	// If a top10 pick ever equals the chaos car, clear chaos car (client guard)
-	$: if (chaosCarId && top10.some((x) => String(x.id) === String(chaosCarId))) {
-		chaosCarId = '';
-	}
+	$: if (chaosCarId && top10IdSet.has(String(chaosCarId))) {
+    chaosCarId = '';
+    chaosTouched = true;
+  }
 
 	// Hidden input payload to submit
 	$: top10IdsJson = JSON.stringify(top10.map((x) => String(x.id)));
@@ -154,18 +180,19 @@
 </script>
 
 <!-- HERO / EVENT HEADER -->
-<div class="card card--glow">
-	<div class="kicker">Event</div>
-	<h1 class="h1">{event.name}</h1>
+ <div class="page-wide">
+    <div class="card card--glow">
+      <div class="kicker">Event</div>
+      <h1 class="h1">{event.name}</h1>
 
-	<div class="meta-row">
-		<span class="pill pill--gold">Locks: {lockLabel}</span>
-		<span class={statusPillClass}>{statusText}</span>
+      <div class="meta-row">
+        <span class="pill pill--gold">Locks: {lockLabel}</span>
+        <span class={statusPillClass}>{statusText}</span>
 
-		{#if event?.type}
-			<span class="pill">Type: {event.type}</span>
-		{/if}
-	</div>
+        {#if event?.type}
+          <span class="pill">Type: {event.type}</span>
+        {/if}
+      </div>
 
 	{#if optionsMode}
 		<div class="debug">
@@ -176,7 +203,7 @@
 		</div>
 	{/if}
 </div>
-
+</div>
 <div class="spacer"></div>
 
 <!-- BODY -->
@@ -299,10 +326,14 @@
 
 				if (result.type === 'success') {
 					await update();
-
+          hydratedEntryRowId = null;
+          chaosTouched = false;
 					// Server confirmed this exact state as saved
 					lastSavedIds = [...currentIds];
 					lastSavedChaosId = currentChaosId ? String(currentChaosId) : '';
+          const serverChaos =
+          data?.entry?.payload?.chaosCarId ? String(data.entry.payload.chaosCarId) : '';
+          if (!chaosTouched) chaosCarId = serverChaos;
 
 					savedPulse = true;
 					setTimeout(() => (savedPulse = false), 1200);
@@ -314,7 +345,7 @@
 			};
 		}}
 	>
-		<div class="bleed">
+		<div class="page-wide">
 			<div class="card">
 				<div class="section-head">
 					<h2 class="h2">Your Daytona Entry</h2>
@@ -336,7 +367,7 @@
     slot="podiumActions"
     class="btn btn--vip"
     type="submit"
-    disabled={locked || saving || top10.length !== 10 || !dirty}
+    disabled={locked || saving || top10.length !== 10 || !chaosCarId || !dirty}
     title={locked
       ? 'Event is locked'
       : top10.length !== 10
@@ -370,16 +401,15 @@
     <div class="spacer-sm"></div>
 
     <label class="muted" for="chaos">Chaos driver</label>
-    <select id="chaos" class="input" bind:value={chaosCarId} disabled={locked}>
+    <select id="chaos" class="input" bind:value={chaosCarId} disabled={locked} on:change={() => (chaosTouched = true)}>
       <option value="">— No chaos car —</option>
 
-      {#each options as opt}
-        {#if !top10.some((x) => String(x.id) === String(opt.id))}
-          <option value={String(opt.id)}>
-            {opt.carNumber ? `#${opt.carNumber} ` : ''}{opt.name}
-          </option>
-        {/if}
+      {#each chaosOptions as opt}
+        <option value={String(opt.id)}>
+          {opt.carNumber ? `#${opt.carNumber} ` : ''}{opt.name}
+        </option>
       {/each}
+
     </select>
 
     <div class="panel">
@@ -574,6 +604,20 @@
 			grid-template-columns: 1fr;
 		}
 	}
+
+  .page-wide {
+  width: 100%;
+  max-width: 1400px;   /* tweak: 1320–1500 is the sweet spot */
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .page-wide {
+    padding: 0 14px;
+  }
+}
 	/* Style the slotted chaos panel to match PodiumPicker sections */
 .podium-side .chaos-head {
   display: flex;
@@ -595,18 +639,17 @@
 .bleed {
   width: 100%;
   max-width: none;
-}
 
-/* If your layout uses a centered max-width container, this forces a full-bleed section */
-.bleed {
+  /* center/bleed without 100vw overflow issues */
   position: relative;
   left: 50%;
   right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+
   padding-left: 24px;
   padding-right: 24px;
+  box-sizing: border-box;
 }
 
 @media (max-width: 640px) {

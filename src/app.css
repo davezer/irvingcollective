@@ -49,6 +49,8 @@ html, body {
   color: var(--text0);
   font-family: var(--font-sans);
   margin: 0;
+  overflow-x: hidden;
+
 }
 
 /* subtle “cigar smoke” texture */

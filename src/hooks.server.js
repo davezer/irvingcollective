@@ -22,7 +22,7 @@ export async function handle({ event, resolve }) {
   // 👇 locals always exists, but we can be extra safe
   event.locals = event.locals || {};
   event.locals.user = null;
-
+  
   const sid = cookies.get('auth_session') || null;
 
   if (db && sid) {

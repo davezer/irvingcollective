@@ -5,7 +5,7 @@ import { getEntryForUser, upsertEntryForUser } from '$lib/server/db/entries.js';
 export async function load({ params, platform, locals }) {
   const db = platform?.env?.DB;
   if (!db) throw error(500, 'Database not available');
-
+  if (!locals.user) throw error(401, 'Not authenticated');
   const slug = params.slug;
   const event = await db
     .prepare(
@@ -54,6 +54,7 @@ export const actions = {
     }
 
     const form = await request.formData();
+    
 
     // ---- Top 10 IDs ----
     let top10Ids;
@@ -137,6 +138,7 @@ export const actions = {
         carNumber: chaosCarNumber || null
       };
     }
+    if (!chaosCarId) return fail(400, { message: 'You must choose a Chaos Car.' });
 
     const payload = { top10Ids, top10Snapshot, chaosCarId, chaosCarSnapshot };
 

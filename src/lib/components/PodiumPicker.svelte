@@ -73,7 +73,7 @@
       disabled={locked}
     />
 
-    <div class="panel">
+    <div class="panel panel--scroll">
       {#if renderAvailable.length === 0}
         <div class="empty">
           {#if query}
@@ -144,7 +144,7 @@
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel panel--scroll">
       {#if value.length === 0}
         <div class="empty">Pick {max} drivers from the left.</div>
       {:else}
@@ -221,10 +221,11 @@
     margin-top: 14px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
+    width: 100%;
   }
 
   .grid.has-side {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1.1fr 1.1fr 0.9fr;
   }
 
   .grid > section {
@@ -284,7 +285,35 @@
     flex: 1 1 auto;
     min-height: 0;
   }
+.panel--scroll {
+  overflow-y: auto;
+}
 
+/* About ~15 rows tall (tweak the number if you want) */
+.panel--scroll {
+  max-height: calc(15 * 52px); /* ~52px per row incl border */
+}
+
+/* Smooth scrolling + looks nicer */
+.panel--scroll {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.panel--scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.panel--scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+}
+.panel--scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+section:nth-of-type(2) .panel--scroll {
+  max-height: calc(15 * 52px);
+}
   /* === ROWS === */
   .row {
     display: flex;

@@ -2,14 +2,15 @@
 
 export async function getEntryForUser({ db, eventId, userId }) {
   const row = await db
-    .prepare(
-      `SELECT id, event_id, user_id, payload_json, submitted_at, updated_at
-       FROM entries
-       WHERE event_id = ? AND user_id = ?
-       LIMIT 1`
-    )
-    .bind(eventId, userId)
-    .first();
+  .prepare(
+    `SELECT id, event_id, user_id, payload_json, submitted_at, updated_at
+     FROM entries
+     WHERE event_id = ? AND user_id = ?
+     ORDER BY updated_at DESC
+     LIMIT 1`
+  )
+  .bind(eventId, userId)
+  .first();
 
   if (!row) return null;
 

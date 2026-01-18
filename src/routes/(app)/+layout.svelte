@@ -24,6 +24,7 @@
           <span class="nav-sep" aria-hidden="true">•</span>
           <a href="/admin/users" class:active={isActive('/admin/users')}>Users</a>
           <a href="/admin/invites" class:active={isActive('/admin/invites')}>Invites</a>
+          <a href="/admin/events" class:active={isActive('/admin/events')}>Events</a>
         {/if}
       </nav>
 

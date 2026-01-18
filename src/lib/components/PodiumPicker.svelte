@@ -72,6 +72,13 @@
       bind:value={query}
       disabled={locked}
     />
+    <div class="foot muted">
+      {#if !query && filteredAvailable.length > renderAvailable.length}
+        Showing {renderAvailable.length} of {filteredAvailable.length}. Search to see more.
+      {:else}
+        Tip: search by last name.
+      {/if}
+    </div>
 
     <div class="panel panel--scroll">
       {#if renderAvailable.length === 0}
@@ -108,13 +115,7 @@
       {/if}
     </div>
 
-    <div class="foot muted">
-      {#if !query && filteredAvailable.length > renderAvailable.length}
-        Showing {renderAvailable.length} of {filteredAvailable.length}. Search to see more.
-      {:else}
-        Tip: search by last name.
-      {/if}
-    </div>
+    
   </section>
 
   <!-- PODIUM -->
@@ -142,6 +143,9 @@
           <slot name="podiumActions" />
         </div>
       </div>
+    </div>
+    <div class="foot muted">
+      Order matters. You’re not picking favorites. You’re picking finishes.
     </div>
 
     <div class="panel panel--scroll">
@@ -194,9 +198,7 @@
       {/if}
     </div>
 
-    <div class="foot muted">
-      Order matters. You’re not picking favorites — you’re picking finishes.
-    </div>
+    
 
     {#if $$slots.statusLine}
       <div class="statusline">
@@ -378,8 +380,8 @@ section:nth-of-type(2) .panel--scroll {
   }
 
   .foot {
-    margin-top: 10px;
     flex: 0 0 auto;
+    padding-bottom: 9px;
   }
 
   .statusline {

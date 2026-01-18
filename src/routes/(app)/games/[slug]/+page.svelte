@@ -1,182 +1,199 @@
+
 <script>
-	import { onMount } from 'svelte';
-	import { enhance } from '$app/forms';
-	import PodiumPicker from '$lib/components/PodiumPicker.svelte';
+  import { onMount } from 'svelte';
+  import { enhance } from '$app/forms';
+  import PodiumPicker from '$lib/components/PodiumPicker.svelte';
 
-	let optionsMode = '';
-	let optionsNote = '';
+  export let data;
 
-	export let data;
+  // Data from +page.server.js (reactive so enhance(update) refreshes these)
+  let event, locked, entry;
+  $: ({ event, locked, entry } = data);
 
-	// Make these reactive so enhance(update) actually refreshes them
-	let event, locked, entry;
-	$: ({ event, locked, entry } = data);
-  $: if (entry && !chaosTouched) {
-  const serverChaos = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
-  chaosCarId = serverChaos;
-  lastSavedChaosId = serverChaos;
-}
+  // Options fetch state
+  let optionsMode = '';
+  let optionsNote = '';
+  let loading = true;
+  let loadError = '';
+  let options = [];
 
-	let loading = true;
-	let loadError = '';
-	let options = [];
+  // Selected picks (objects)
+  let top10 = [];
 
-	// Selected picks (objects)
-	let top10 = [];
+  // Derived: current top10 id set + chaos dropdown options exclude top10
   $: top10IdSet = new Set(top10.map((x) => String(x.id)));
   $: chaosOptions = options.filter((o) => !top10IdSet.has(String(o.id)));
 
-	// Chaos car (single id)
-	let chaosCarId = '';
+  // Chaos car (single id)
+  let chaosCarId = '';
   let chaosTouched = false;
 
-	// Save UX
-	let saving = false;
-	let saveError = '';
-	let savedPulse = false;
+  // Save UX
+  let saving = false;
+  let saveError = '';
+  let savedPulse = false;
 
-	// Track "what the server last confirmed" so dirty works correctly
-	let lastSavedIds = [];
+  // Track what the server last confirmed so dirty works correctly
+  let lastSavedIds = [];
   let lastSavedChaosId = '';
 
-	// Current ids (in order)
-	$: currentIds = top10.map((x) => String(x.id));
-	$: currentChaosId = chaosCarId ? String(chaosCarId) : '';
+  // Current ids (in order)
+  $: currentIds = top10.map((x) => String(x.id));
+  $: currentChaosId = chaosCarId ? String(chaosCarId) : '';
 
-	// Dirty if order/content differs from last saved snapshot (including chaos car)
-	$: dirty =
-		!locked &&
-		(JSON.stringify(currentIds) !== JSON.stringify(lastSavedIds) ||
-			String(currentChaosId) !== String(lastSavedChaosId));
+  // Dirty if order/content differs from last saved snapshot (including chaos car)
+  $: dirty =
+    !locked &&
+    (JSON.stringify(currentIds) !== JSON.stringify(lastSavedIds) ||
+      String(currentChaosId) !== String(lastSavedChaosId));
 
-	// Button label helper
-	$: hasSavedEntry = lastSavedIds.length === 10;
-	$: saveLabel = saving
-		? 'Saving…'
-		: dirty
-			? hasSavedEntry
-				? 'Update entry'
-				: 'Save entry'
-			: 'Saved';
+  // Button label helper
+  $: hasSavedEntry = lastSavedIds.length === 10;
+  $: saveLabel = saving
+    ? 'Saving…'
+    : dirty
+      ? hasSavedEntry
+        ? 'Update entry'
+        : 'Save entry'
+      : 'Saved';
 
-	// Initialize from saved payload (top10Ids)
-	function applySaved(entryPayload) {
-		if (!entryPayload?.top10Ids || !Array.isArray(entryPayload.top10Ids)) return;
+  // ---------
+  // Hydration / option resolution
+  // ---------
 
-		top10 = [];
-		const seen = new Set();
-		pendingIds = entryPayload.top10Ids
-			.map(String)
-			.filter((id) => (seen.has(id) ? false : (seen.add(id), true)))
-			.slice(0, 10);
-	}
+  // IDs from server payload that need resolving into option objects
+  let pendingIds = [];
 
-	let pendingIds = [];
-	applySaved(entry?.payload);
+  function applySaved(entryPayload) {
+    if (!entryPayload?.top10Ids || !Array.isArray(entryPayload.top10Ids)) return;
 
+    const seen = new Set();
+    const ids = entryPayload.top10Ids
+      .map(String)
+      .filter((id) => (seen.has(id) ? false : (seen.add(id), true)))
+      .slice(0, 10);
+
+    pendingIds = ids;
+
+    // If options already loaded, resolve immediately (prevents "empty flash")
+    if (options.length) {
+      const map = new Map(options.map((o) => [String(o.id), o]));
+      top10 = pendingIds
+        .map((id) => map.get(String(id)))
+        .filter(Boolean)
+        .slice(0, 10);
+      pendingIds = [];
+    }
+  }
+
+  // If pendingIds exist and options become available later, resolve them
+  $: if (pendingIds.length && options.length) {
+    const map = new Map(options.map((o) => [String(o.id), o]));
+    top10 = pendingIds
+      .map((id) => map.get(String(id)))
+      .filter(Boolean)
+      .slice(0, 10);
+    pendingIds = [];
+  }
+
+  // Hydrate from server entry only when we get a real entry row
   let hydratedEntryRowId = null;
 
-$: if (entry?.id && entry.id !== hydratedEntryRowId) {
-  hydratedEntryRowId = entry.id;
+  $: if (entry?.id && entry.id !== hydratedEntryRowId) {
+    hydratedEntryRowId = entry.id;
 
-  // Hydrate saved Top10 → pendingIds (then resolves to option objects after options load)
-  applySaved(entry.payload);
+    // Hydrate saved Top 10 → pendingIds (resolved to objects if options already loaded)
+    applySaved(entry.payload);
 
-  // Hydrate saved chaos
-  chaosCarId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+    // Hydrate chaos from server only if user hasn't touched it
+    if (!chaosTouched) {
+      chaosCarId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+    }
 
-  // Hydrate server-confirmed snapshots used by "dirty"
-  lastSavedIds = (entry?.payload?.top10Ids || []).map(String);
-  lastSavedChaosId = chaosCarId;
-}
+    // Hydrate server-confirmed "last saved" snapshots used by dirty calc
+    lastSavedIds = (entry?.payload?.top10Ids || []).map(String);
+    lastSavedChaosId = entry?.payload?.chaosCarId ? String(entry.payload.chaosCarId) : '';
+  }
 
+  // ---------
+  // Options fetch
+  // ---------
 
-	async function fetchOptionsWithTimeout() {
-		loading = true;
-		loadError = '';
+  async function fetchOptionsWithTimeout() {
+    loading = true;
+    loadError = '';
 
-		const controller = new AbortController();
-		const t = setTimeout(() => controller.abort(), 15000);
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 15000);
 
-		try {
-			const res = await fetch(`/api/events/${event.slug}/options`, {
-				signal: controller.signal
-			});
+    try {
+      const res = await fetch(`/api/events/${event.slug}/options`, {
+        signal: controller.signal
+      });
 
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body?.error || `Failed to load options (${res.status})`);
-			}
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to load options (${res.status})`);
+      }
 
-			const body = await res.json();
-			options = body.options || [];
+      const body = await res.json();
+      options = body.options || [];
+      optionsMode = body.mode || '';
+      optionsNote = body.note || '';
+    } catch (e) {
+      loadError =
+        e?.name === 'AbortError'
+          ? 'Timed out loading drivers. Try again.'
+          : e?.message || 'Failed to load drivers';
+    } finally {
+      clearTimeout(t);
+      loading = false;
+    }
+  }
 
-			optionsMode = body.mode || '';
-			optionsNote = body.note || '';
+  onMount(() => {
+    // Only fetch in the browser so we never get stuck during SSR/hydration
+    if (event?.type === 'daytona') {
+      fetchOptionsWithTimeout();
+    } else {
+      loading = false;
+    }
+  });
 
-			// Resolve saved IDs to option objects once options load
-			if (pendingIds.length) {
-				const map = new Map(options.map((o) => [String(o.id), o]));
-				top10 = pendingIds
-					.map((id) => map.get(String(id)))
-					.filter(Boolean)
-					.slice(0, 10);
-				pendingIds = [];
-			}
-		} catch (e) {
-			loadError =
-				e?.name === 'AbortError'
-					? 'Timed out loading drivers. Try again.'
-					: e?.message || 'Failed to load drivers';
-		} finally {
-			clearTimeout(t);
-			loading = false;
-		}
-	}
-
-	onMount(() => {
-		// Only fetch in the browser so we never get stuck during SSR/hydration
-		if (event?.type === 'daytona') {
-			fetchOptionsWithTimeout();
-		} else {
-			loading = false;
-		}
-	});
-
-	// If a top10 pick ever equals the chaos car, clear chaos car (client guard)
-	$: if (chaosCarId && top10IdSet.has(String(chaosCarId))) {
+  // If a top10 pick ever equals the chaos car, clear chaos car (client guard)
+  $: if (chaosCarId && top10IdSet.has(String(chaosCarId))) {
     chaosCarId = '';
     chaosTouched = true;
   }
 
-	// Hidden input payload to submit
-	$: top10IdsJson = JSON.stringify(top10.map((x) => String(x.id)));
-	// Snapshot for the Top 10 (same order as top10)
-	$: top10SnapshotJson = JSON.stringify(
-		top10.map((x) => ({
-			id: String(x.id),
-			name: x?.name ? String(x.name) : null,
-			carNumber: x?.carNumber ? String(x.carNumber) : null
-		}))
-	);
+  // Hidden input payloads to submit
+  $: top10IdsJson = JSON.stringify(top10.map((x) => String(x.id)));
+  $: top10SnapshotJson = JSON.stringify(
+    top10.map((x) => ({
+      id: String(x.id),
+      name: x?.name ? String(x.name) : null,
+      carNumber: x?.carNumber ? String(x.carNumber) : null
+    }))
+  );
 
-	// UI helpers
-	$: lockLabel = new Date(Number(event.lock_at) * 1000).toLocaleString();
-	$: statusPillClass = locked ? 'pill pill--red' : 'pill pill--green';
-	$: statusText = locked ? 'Locked' : 'Open';
+  // UI helpers
+  $: lockLabel = new Date(Number(event.lock_at) * 1000).toLocaleString();
+  $: statusPillClass = locked ? 'pill pill--red' : 'pill pill--green';
+  $: statusText = locked ? 'Locked' : 'Open';
 
-	// For chaos car display label (optional nice touch)
-	$: chaosLabel = (() => {
-		if (!chaosCarId) return '';
-		const o = options.find((x) => String(x.id) === String(chaosCarId));
-		if (!o) return chaosCarId;
-		const num = o.carNumber ? `#${o.carNumber} ` : '';
-		return `${num}${o.name}`;
-	})();
-	// Chaos snapshot fields (what we store)
-	$: chaosOption = chaosCarId ? options.find((x) => String(x.id) === String(chaosCarId)) : null;
-	$: chaosCarName = chaosOption?.name ? String(chaosOption.name) : '';
-	$: chaosCarNumber = chaosOption?.carNumber ? String(chaosOption.carNumber) : '';
+  // Chaos label (nice display)
+  $: chaosLabel = (() => {
+    if (!chaosCarId) return '';
+    const o = options.find((x) => String(x.id) === String(chaosCarId));
+    if (!o) return chaosCarId;
+    const num = o.carNumber ? `#${o.carNumber} ` : '';
+    return `${num}${o.name}`;
+  })();
+
+  // Chaos snapshot fields (what we store)
+  $: chaosOption = chaosCarId ? options.find((x) => String(x.id) === String(chaosCarId)) : null;
+  $: chaosCarName = chaosOption?.name ? String(chaosOption.name) : '';
+  $: chaosCarNumber = chaosOption?.carNumber ? String(chaosOption.carNumber) : '';
 </script>
 
 <!-- HERO / EVENT HEADER -->
@@ -313,153 +330,163 @@ $: if (entry?.id && entry.id !== hydratedEntryRowId) {
 		</div>
 	</div>
 {:else}
-	<form
-		method="POST"
-		action="?/save"
-		use:enhance={() => {
-			saving = true;
-			saveError = '';
-			savedPulse = false;
+  <form
+    method="POST"
+    action="?/save"
+    use:enhance={() => {
+      saving = true;
+      saveError = "";
+      savedPulse = false;
 
-			return async ({ result, update }) => {
-				saving = false;
+      // snapshot what we're saving
+      const savedIdsNow = [...currentIds];
+      const savedChaosNow = currentChaosId ? String(currentChaosId) : "";
 
-				if (result.type === 'success') {
-					await update();
+      return async ({ result, update }) => {
+        if (result.type === "success") {
+          await update({ reset: false });
+
+          // allow re-hydration when server data is ready (but don't wipe UI)
           hydratedEntryRowId = null;
-          chaosTouched = false;
-					// Server confirmed this exact state as saved
-					lastSavedIds = [...currentIds];
-					lastSavedChaosId = currentChaosId ? String(currentChaosId) : '';
-          const serverChaos =
-          data?.entry?.payload?.chaosCarId ? String(data.entry.payload.chaosCarId) : '';
-          if (!chaosTouched) chaosCarId = serverChaos;
 
-					savedPulse = true;
-					setTimeout(() => (savedPulse = false), 1200);
-				} else if (result.type === 'failure') {
-					saveError = result.data?.message || 'Could not save entry.';
-				} else {
-					saveError = 'Something went wrong saving your entry.';
-				}
-			};
-		}}
-	>
-		<div class="page-wide">
-			<div class="card">
-				<div class="section-head">
-					<h2 class="h2">Your Daytona Entry</h2>
-					{#if chaosCarId}
-						<span class="pill pill--gold">Chaos set</span>
-					{:else}
-						<span class="pill">Chaos Required</span>
-					{/if}
-				</div>
+          lastSavedIds = savedIdsNow;
+          lastSavedChaosId = savedChaosNow;
 
-				<p class="subtle" style="margin-top: 10px;">
-					Choose your top 10 finishers. Order matters. Add a Chaos Car for extra spice.
-				</p>
+          savedPulse = true;
+          setTimeout(() => (savedPulse = false), 1200);
+        } else if (result.type === "failure") {
+          saveError = result.data?.message || "Could not save entry.";
+        } else {
+          saveError = "Something went wrong saving your entry.";
+        }
 
-				<div class="spacer-sm"></div>
-
-				<PodiumPicker {options} bind:value={top10} {locked} max={10}>
-  <button
-    slot="podiumActions"
-    class="btn btn--vip"
-    type="submit"
-    disabled={locked || saving || top10.length !== 10 || !chaosCarId || !dirty}
-    title={locked
-      ? 'Event is locked'
-      : top10.length !== 10
-        ? 'Pick exactly 10 to save'
-        : !dirty
-          ? 'No changes to save'
-          : 'Save entry'}
+        saving = false;
+      };
+    }}
   >
-    {saveLabel}
-  </button>
+    <div class="page-wide">
+      <div class="card">
+        <div class="section-head">
+          <h2 class="h2">Your Daytona Entry</h2>
+          {#if chaosCarId}
+            <span class="pill pill--gold">Chaos set</span>
+          {:else}
+            <span class="pill">Chaos Required</span>
+          {/if}
+        </div>
 
-  <!-- CHAOS PANEL -->
-  <div slot="sidePanel" class="podium-side">
-    <div class="chaos-head">
-      <div>
-        <div class="kicker">Chaos</div>
-        <h3 class="chaos-title">Chaos Car</h3>
-      </div>
+        <p class="subtle" style="margin-top: 10px;">
+          Choose your top 10 finishers. Order matters. Add a Chaos Car for extra spice.
+        </p>
 
-      {#if chaosCarId}
-        <span class="pill pill--gold">Chosen</span>
-      {:else}
-        <span class="pill">Required</span>
-      {/if}
-    </div>
+        <div class="spacer-sm"></div>
 
-    <p class="subtle" style="margin-top: 0;">
-      Pick one driver outside your Top 10. Pure vibes. Pure danger.
-    </p>
+        <PodiumPicker {options} bind:value={top10} {locked} max={10}>
+          <!-- Save button in header -->
+          <button
+            slot="podiumActions"
+            class="btn btn--vip"
+            type="submit"
+            disabled={locked || saving || top10.length !== 10 || !chaosCarId || !dirty}
+            title={locked
+              ? "Event is locked"
+              : top10.length !== 10
+                ? "Pick exactly 10 to save"
+                : !dirty
+                  ? "No changes to save"
+                  : "Save entry"}
+          >
+            {saveLabel}
+          </button>
 
-    <div class="spacer-sm"></div>
+          <!-- CHAOS PANEL (3rd column) -->
+          <div slot="sidePanel" class="podium-side">
+            <div class="chaos-head">
+              <div>
+                <div class="kicker">Chaos</div>
+                <h3 class="chaos-title">Chaos Car</h3>
+              </div>
 
-    <label class="muted" for="chaos">Chaos driver</label>
-    <select id="chaos" class="input" bind:value={chaosCarId} disabled={locked} on:change={() => (chaosTouched = true)}>
-      <option value="">— No chaos car —</option>
+              {#if chaosCarId}
+                <span class="pill pill--gold">Chosen</span>
+              {:else}
+                <span class="pill">Required</span>
+              {/if}
+            </div>
 
-      {#each chaosOptions as opt}
-        <option value={String(opt.id)}>
-          {opt.carNumber ? `#${opt.carNumber} ` : ''}{opt.name}
-        </option>
-      {/each}
+            <p class="subtle" style="margin-top: 0;">
+              Pick one driver outside your Top 10. Pure vibes. Pure danger.
+            </p>
 
-    </select>
+            <div class="spacer-sm"></div>
 
-    <div class="panel">
-      <div class="panel-pad">
-        {#if chaosCarId}
-          <div class="muted">Selected</div>
-          <div style="margin-top: 6px;">
-            <strong>{chaosLabel}</strong>
+            <label class="muted" for="chaos">Chaos driver</label>
+            <select
+              id="chaos"
+              class="input"
+              bind:value={chaosCarId}
+              disabled={locked}
+              on:change={() => (chaosTouched = true)}
+            >
+              <option value="">— No chaos car —</option>
+
+              {#each chaosOptions as opt}
+                <option value={String(opt.id)}>
+                  {opt.carNumber ? `#${opt.carNumber} ` : ""}{opt.name}
+                </option>
+              {/each}
+            </select>
+
+            <div class="panel" style="margin-top: 10px;">
+              <div class="panel-pad">
+                {#if chaosCarId}
+                  <div class="muted">Selected</div>
+                  <div style="margin-top: 6px;">
+                    <strong>{chaosLabel}</strong>
+                  </div>
+
+                  <div class="actions" style="margin-top: 12px;">
+                    <button class="btn btn--ghost" type="button" on:click={() => (chaosCarId = "")}>
+                      Clear
+                    </button>
+                  </div>
+                {:else}
+                  <div class="muted">Tip: pick someone volatile. That’s the point.</div>
+                {/if}
+              </div>
+            </div>
+
+            <div class="foot muted" style="margin-top: 10px;">
+              Rule: chaos car must not be in your Top 10.
+            </div>
           </div>
 
-          <div class="actions" style="margin-top: 12px;">
-            <button class="btn btn--ghost" type="button" on:click={() => (chaosCarId = '')}>
-              Clear
-            </button>
+          <!-- STATUS LINE -->
+          <div slot="statusLine" class="muted">
+            {#if saveError}
+              <span style="color: rgba(255,120,120,0.95);">{saveError}</span>
+            {:else if saving}
+              Saving your picks…
+            {:else if savedPulse || (!dirty && top10.length === 10)}
+              Saved.
+            {:else if top10.length !== 10}
+              Pick exactly 10 to submit.
+            {:else}
+              Make changes, then save.
+            {/if}
           </div>
-        {:else}
-          <div class="muted">Tip: pick someone volatile. That’s the point.</div>
-        {/if}
+        </PodiumPicker>
+
+        <!-- Hidden payload inputs -->
+        <input type="hidden" name="top10Ids" value={top10IdsJson} />
+        <input type="hidden" name="top10Snapshot" value={top10SnapshotJson} />
+        <input type="hidden" name="chaosCarId" value={chaosCarId} />
+        <input type="hidden" name="chaosCarName" value={chaosCarName} />
+        <input type="hidden" name="chaosCarNumber" value={chaosCarNumber} />
       </div>
     </div>
-
-    <div class="foot muted">Rule: chaos car must not be in your Top 10.</div>
-  </div>
-
-  <!-- STATUS LINE (renders under Top 10 panel) -->
-  <div slot="statusLine" class="muted">
-    {#if saveError}
-      <span style="color: rgba(255,120,120,0.95);">{saveError}</span>
-    {:else if saving}
-      Saving your picks…
-    {:else if savedPulse || (!dirty && top10.length === 10)}
-      Saved.
-    {:else if top10.length !== 10}
-      Pick exactly 10 to submit.
-    {:else}
-      Make changes, then save.
-    {/if}
-  </div>
-</PodiumPicker>
-
-<input type="hidden" name="top10Ids" value={top10IdsJson} />
-<input type="hidden" name="top10Snapshot" value={top10SnapshotJson} />
-<input type="hidden" name="chaosCarId" value={chaosCarId} />
-<input type="hidden" name="chaosCarName" value={chaosCarName} />
-<input type="hidden" name="chaosCarNumber" value={chaosCarNumber} />
-
-		
-	</form>
+  </form>
 {/if}
-
 <style>
 	.spacer {
 		height: 16px;

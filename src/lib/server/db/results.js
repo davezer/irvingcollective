@@ -22,19 +22,18 @@ export async function getResultsForEvent(db, eventId) {
 }
 
 export async function upsertResultsForEvent(db, eventId, payload) {
-  const json = JSON.stringify(payload);
+  const payloadJson = JSON.stringify(payload ?? {});
 
   await db
     .prepare(`
-      INSERT INTO event_results (event_id, payload_json, published_at, updated_at)
-      VALUES (?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')), (strftime('%Y-%m-%dT%H:%M:%fZ','now')))
+      INSERT INTO event_results (event_id, payload_json)
+      VALUES (?, ?)
       ON CONFLICT(event_id) DO UPDATE SET
         payload_json = excluded.payload_json,
-        updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        updated_at   = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `)
-    .bind(eventId, json)
+    .bind(String(eventId), payloadJson)
     .run();
-
-  return true;
 }
+
 

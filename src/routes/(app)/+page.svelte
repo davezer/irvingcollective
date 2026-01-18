@@ -3,7 +3,7 @@
 </script>
 
 <main style="max-width: 720px; margin: 48px auto; padding: 0 16px;">
-  <h1>Welcome, {data.user.displayName} 👋</h1>
+  <h1>Welcome, {data.user.displayName} </h1>
   <p style="opacity:.75; margin-top:6px;">
     Role: <strong>{data.user.role}</strong>
   </p>

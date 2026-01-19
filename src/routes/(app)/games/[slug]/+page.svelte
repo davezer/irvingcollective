@@ -1,8 +1,8 @@
-
 <script>
   import { onMount } from 'svelte';
   import { enhance } from '$app/forms';
   import PodiumPicker from '$lib/components/PodiumPicker.svelte';
+  import { eventDisplay } from '$lib/events/displayNames';
 
   export let data;
 
@@ -57,9 +57,8 @@
         : 'Save entry'
       : 'Saved';
 
-  // ---------
-  // Hydration / option resolution
-  // ---------
+  // Optional convenience (you can use names.title/subtitle/logo if you prefer)
+  $: names = eventDisplay(event);
 
   // IDs from server payload that need resolving into option objects
   let pendingIds = [];
@@ -118,7 +117,6 @@
   // ---------
   // Options fetch
   // ---------
-
   async function fetchOptionsWithTimeout() {
     loading = true;
     loadError = '';
@@ -176,8 +174,8 @@
     }))
   );
 
-  // UI helpers
-  $: lockLabel = new Date(Number(event.lock_at) * 1000).toLocaleString();
+  // UI helpers (hydration-safe)
+  $: lockLabel = event?.lock_at ? new Date(Number(event.lock_at) * 1000).toLocaleString() : '';
   $: statusPillClass = locked ? 'pill pill--red' : 'pill pill--green';
   $: statusText = locked ? 'Locked' : 'Open';
 
@@ -194,156 +192,194 @@
   $: chaosOption = chaosCarId ? options.find((x) => String(x.id) === String(chaosCarId)) : null;
   $: chaosCarName = chaosOption?.name ? String(chaosOption.name) : '';
   $: chaosCarNumber = chaosOption?.carNumber ? String(chaosOption.carNumber) : '';
+
+  // Local status helpers for the header (safe for single-event page)
+  function isLockedLocal(e) {
+    if (!e?.lock_at) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return now >= Number(e.lock_at);
+  }
+
+  function statusTextLocal(e) {
+    return isLockedLocal(e) ? 'Locked' : 'Upcoming';
+  }
+
+  function statusClassLocal(e) {
+    return isLockedLocal(e) ? 'pill pill--red' : 'pill pill--green';
+  }
 </script>
 
 <!-- HERO / EVENT HEADER -->
- <div class="page-wide">
-    <div class="card card--glow">
-      <div class="kicker">Event</div>
-      <h1 class="h1">{event.name}</h1>
+<div class="page-wide">
+  <div class="card card--glow">
+    <div class="kicker">Event</div>
 
-      <div class="meta-row">
-        <span class="pill pill--gold">Locks: {lockLabel}</span>
-        <span class={statusPillClass}>{statusText}</span>
+    <div class="event-top">
+      <div class="event-titlewrap">
+        <div class="event-name-row">
+          {#if names.logo}
+            <img
+              class="event-logo"
+              src={names.logo}
+              alt={`${names.title} logo`}
+              loading="lazy"
+            />
+          {/if}
 
-        {#if event?.type}
-          <span class="pill">Type: {event.type}</span>
+          <div class="event-name">{names.title}</div>
+        </div>
+
+        {#if names.subtitle}
+          <div class="event-subtitle">{names.subtitle}</div>
         {/if}
       </div>
 
-	{#if optionsMode}
-		<div class="debug">
-			<div class="muted">Options mode: {optionsMode}</div>
-			{#if optionsNote}
-				<div class="muted">{optionsNote}</div>
-			{/if}
-		</div>
-	{/if}
+      <span class={statusClassLocal(event)}>{statusTextLocal(event)}</span>
+    </div>
+
+    <div class="meta-row">
+      <span class="pill pill--gold">Locks: {lockLabel}</span>
+      <span class={statusPillClass}>{statusText}</span>
+
+      {#if event?.type}
+        <span class="pill">Type: {event.type}</span>
+      {/if}
+    </div>
+
+    {#if optionsMode}
+      <div class="debug">
+        <div class="muted">Options mode: {optionsMode}</div>
+        {#if optionsNote}
+          <div class="muted">{optionsNote}</div>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
-</div>
+
 <div class="spacer"></div>
 
 <!-- BODY -->
 {#if locked}
-	<div class="card">
-		<div class="section-head">
-			<h2 class="h2">Finalized Entry</h2>
-			<span class="pill pill--red">No edits</span>
-		</div>
+  <div class="card">
+    <div class="section-head">
+      <h2 class="h2">Finalized Entry</h2>
+      <span class="pill pill--red">No edits</span>
+    </div>
 
-		{#if entry?.payload?.top10Ids?.length}
-			<p class="subtle" style="margin-top: 6px;">
-				Your picks are locked in. Once we add snapshots, this will show driver names + car numbers.
-			</p>
+    {#if entry?.payload?.top10Ids?.length}
+      <p class="subtle" style="margin-top: 6px;">
+        Your picks are locked in. Once we add snapshots, this will show driver names + car numbers.
+      </p>
 
-			<div class="list">
-				{#if entry?.payload?.top10Snapshot?.length}
-					<ol>
-						{#each entry.payload.top10Snapshot as row}
-							<li>
-								{#if row?.carNumber}
-									<span class="pill">#{row.carNumber}</span>
-								{/if}
-								<strong style="margin-left: 8px;">
-									{row?.name || row?.id}
-								</strong>
-								<span class="muted" style="margin-left: 8px;">
-									({row?.id})
-								</span>
-							</li>
-						{/each}
-					</ol>
-				{:else}
-					<ol>
-						{#each entry.payload.top10Ids as id}
-							<li><span class="muted">{id}</span></li>
-						{/each}
-					</ol>
-				{/if}
-			</div>
+      <div class="list">
+        {#if entry?.payload?.top10Snapshot?.length}
+          <ol>
+            {#each entry.payload.top10Snapshot as row}
+              <li>
+                {#if row?.carNumber}
+                  <span class="pill">#{row.carNumber}</span>
+                {/if}
+                <strong style="margin-left: 8px;">
+                  {row?.name || row?.id}
+                </strong>
+                <span class="muted" style="margin-left: 8px;">
+                  ({row?.id})
+                </span>
+              </li>
+            {/each}
+          </ol>
+        {:else}
+          <ol>
+            {#each entry.payload.top10Ids as id}
+              <li><span class="muted">{id}</span></li>
+            {/each}
+          </ol>
+        {/if}
+      </div>
 
-			{#if entry?.payload?.chaosCarId}
-				<div class="spacer-sm"></div>
-				<div class="list">
-					<div class="section-head">
-						<h3 class="h3" style="margin:0;">Chaos Car</h3>
-						<span class="pill pill--gold">Locked</span>
-					</div>
+      {#if entry?.payload?.chaosCarId}
+        <div class="spacer-sm"></div>
+        <div class="list">
+          <div class="section-head">
+            <h3 class="h3" style="margin:0;">Chaos Car</h3>
+            <span class="pill pill--gold">Locked</span>
+          </div>
 
-					{#if entry?.payload?.chaosCarSnapshot}
-						<div class="muted" style="margin-top:10px;">
-							{#if entry.payload.chaosCarSnapshot.carNumber}
-								<span class="pill">#{entry.payload.chaosCarSnapshot.carNumber}</span>
-							{/if}
-							<strong style="margin-left: 8px;">
-								{entry.payload.chaosCarSnapshot.name || entry.payload.chaosCarSnapshot.id}
-							</strong>
-						</div>
-						<div class="muted" style="margin-top: 6px;">
-							ID: {entry.payload.chaosCarSnapshot.id}
-						</div>
-					{:else}
-						<div class="muted" style="margin-top:10px;">
-							{String(entry.payload.chaosCarId)}
-						</div>
-					{/if}
-				</div>
-			{/if}
+          {#if entry?.payload?.chaosCarSnapshot}
+            <div class="muted" style="margin-top:10px;">
+              {#if entry.payload.chaosCarSnapshot.carNumber}
+                <span class="pill">#{entry.payload.chaosCarSnapshot.carNumber}</span>
+              {/if}
+              <strong style="margin-left: 8px;">
+                {entry.payload.chaosCarSnapshot.name || entry.payload.chaosCarSnapshot.id}
+              </strong>
+            </div>
+            <div class="muted" style="margin-top: 6px;">
+              ID: {entry.payload.chaosCarSnapshot.id}
+            </div>
+          {:else}
+            <div class="muted" style="margin-top:10px;">
+              {String(entry.payload.chaosCarId)}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
-			<div class="muted" style="margin-top: 10px;">
-				(Next PR: store/display option snapshots so we render names here.)
-			</div>
-		{:else}
-			<p class="subtle" style="margin-top: 10px;">You didn’t submit an entry for this event.</p>
-		{/if}
-	</div>
+      <div class="muted" style="margin-top: 10px;">
+        (Next PR: store/display option snapshots so we render names here.)
+      </div>
+    {:else}
+      <p class="subtle" style="margin-top: 10px;">You didn’t submit an entry for this event.</p>
+    {/if}
+  </div>
 {:else if event.type !== 'daytona'}
-	<div class="card">
-		<div class="section-head">
-			<h2 class="h2">Coming Soon</h2>
-			<span class="pill">Not wired</span>
-		</div>
-		<p class="subtle" style="margin-top: 10px;">This event type isn’t wired yet.</p>
-	</div>
+  <div class="card">
+    <div class="section-head">
+      <h2 class="h2">Coming Soon</h2>
+      <span class="pill">Not wired</span>
+    </div>
+    <p class="subtle" style="margin-top: 10px;">This event type isn’t wired yet.</p>
+  </div>
 {:else if loading}
-	<div class="card">
-		<div class="section-head">
-			<h2 class="h2">Loading</h2>
-			<span class="pill">Please wait</span>
-		</div>
-		<p class="subtle" style="margin-top: 10px;">Fetching the driver pool…</p>
-	</div>
+  <div class="card">
+    <div class="section-head">
+      <h2 class="h2">Loading</h2>
+      <span class="pill">Please wait</span>
+    </div>
+    <p class="subtle" style="margin-top: 10px;">Fetching the driver pool…</p>
+  </div>
 {:else if loadError}
-	<div class="card">
-		<div class="section-head">
-			<h2 class="h2">Couldn’t load drivers</h2>
-			<span class="pill pill--red">Error</span>
-		</div>
+  <div class="card">
+    <div class="section-head">
+      <h2 class="h2">Couldn’t load drivers</h2>
+      <span class="pill pill--red">Error</span>
+    </div>
 
-		<p class="subtle" style="margin-top: 10px;">
-			<strong class="muted">Details:</strong>
-			{loadError}
-		</p>
+    <p class="subtle" style="margin-top: 10px;">
+      <strong class="muted">Details:</strong>
+      {loadError}
+    </p>
 
-		<div class="actions">
-			<button class="btn" type="button" on:click={fetchOptions}>Try again</button>
-		</div>
-	</div>
+    <div class="actions">
+      <button class="btn" type="button" on:click={fetchOptionsWithTimeout}>Try again</button>
+    </div>
+  </div>
 {:else}
   <form
     method="POST"
     action="?/save"
     use:enhance={() => {
       saving = true;
-      saveError = "";
+      saveError = '';
       savedPulse = false;
 
       // snapshot what we're saving
       const savedIdsNow = [...currentIds];
-      const savedChaosNow = currentChaosId ? String(currentChaosId) : "";
+      const savedChaosNow = currentChaosId ? String(currentChaosId) : '';
 
       return async ({ result, update }) => {
-        if (result.type === "success") {
+        if (result.type === 'success') {
           await update({ reset: false });
 
           // allow re-hydration when server data is ready (but don't wipe UI)
@@ -354,10 +390,10 @@
 
           savedPulse = true;
           setTimeout(() => (savedPulse = false), 1200);
-        } else if (result.type === "failure") {
-          saveError = result.data?.message || "Could not save entry.";
+        } else if (result.type === 'failure') {
+          saveError = result.data?.message || 'Could not save entry.';
         } else {
-          saveError = "Something went wrong saving your entry.";
+          saveError = 'Something went wrong saving your entry.';
         }
 
         saving = false;
@@ -389,12 +425,12 @@
             type="submit"
             disabled={locked || saving || top10.length !== 10 || !chaosCarId || !dirty}
             title={locked
-              ? "Event is locked"
+              ? 'Event is locked'
               : top10.length !== 10
-                ? "Pick exactly 10 to save"
+                ? 'Pick exactly 10 to save'
                 : !dirty
-                  ? "No changes to save"
-                  : "Save entry"}
+                  ? 'No changes to save'
+                  : 'Save entry'}
           >
             {saveLabel}
           </button>
@@ -432,7 +468,7 @@
 
               {#each chaosOptions as opt}
                 <option value={String(opt.id)}>
-                  {opt.carNumber ? `#${opt.carNumber} ` : ""}{opt.name}
+                  {opt.carNumber ? `#${opt.carNumber} ` : ''}{opt.name}
                 </option>
               {/each}
             </select>
@@ -446,7 +482,7 @@
                   </div>
 
                   <div class="actions" style="margin-top: 12px;">
-                    <button class="btn btn--ghost" type="button" on:click={() => (chaosCarId = "")}>
+                    <button class="btn btn--ghost" type="button" on:click={() => (chaosCarId = '')}>
                       Clear
                     </button>
                   </div>
@@ -487,203 +523,175 @@
     </div>
   </form>
 {/if}
+
 <style>
-	.spacer {
-		height: 16px;
-	}
-	.spacer-sm {
-		height: 10px;
-	}
-
-	.meta-row {
-		display: flex;
-		gap: 10px;
-		flex-wrap: wrap;
-		align-items: center;
-		margin-top: 14px;
-	}
-
-	.section-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 12px;
-		flex-wrap: wrap;
-	}
-
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-top: 16px;
-		flex-wrap: wrap;
-	}
-
-	.debug {
-		margin-top: 12px;
-		padding-top: 12px;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
-		display: grid;
-		gap: 6px;
-	}
-
-	.list {
-		margin-top: 12px;
-		padding: 12px;
-		border-radius: 12px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.25);
-	}
-
-	ol {
-		margin: 0;
-		padding-left: 22px;
-	}
-
-	li {
-		margin: 6px 0;
-	}
-
-	/* Two-column layout for entry + chaos */
-	.grid-two {
-		display: grid;
-		grid-template-columns: 1.35fr 0.65fr;
-		gap: 14px;
-		align-items: start;
-	}
-
-	@media (max-width: 860px) {
-		.grid-two {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.field {
-		display: grid;
-		gap: 8px;
-	}
-
-	/* Simple input/select styling that fits your cards */
-	.input {
-		width: 100%;
-		padding: 10px 12px;
-		border-radius: 12px;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(0, 0, 0, 0.28);
-		color: rgba(255, 255, 255, 0.92);
-		outline: none;
-	}
-
-	.input:focus {
-		border-color: rgba(255, 255, 255, 0.22);
-	}
-
-	.input:disabled {
-		opacity: 0.65;
-		cursor: not-allowed;
-	}
-
-	/* 3-panel layout inside the same entry card */
-	.entry-grid {
-		display: grid;
-		grid-template-columns: 1fr 320px;
-		gap: 14px;
-		align-items: start;
-	}
-
-	/* PodiumPicker stays the main area (it already contains two panels) */
-	.entry-main {
-		min-width: 0;
-	}
-
-	/* Chaos panel matches the inner-panel vibe */
-	.entry-panel {
-		border-radius: 16px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.22);
-		padding: 14px;
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-	}
-
-	.panel-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 12px;
-	}
-
-	.panel-title {
-		font-size: 18px;
-		font-weight: 700;
-		margin-top: 2px;
-	}
-
-	.panel-box {
-		margin-top: 8px;
-		padding: 12px;
-		border-radius: 12px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.25);
-	}
-
-	@media (max-width: 980px) {
-		.entry-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-
-  .page-wide {
-  width: 100%;
-  max-width: 1400px;   /* tweak: 1320–1500 is the sweet spot */
-  margin: 0 auto;
-  padding: 0 24px;
-  box-sizing: border-box;
-}
-
-@media (max-width: 640px) {
-  .page-wide {
-    padding: 0 14px;
+  .spacer {
+    height: 16px;
   }
-}
-	/* Style the slotted chaos panel to match PodiumPicker sections */
-.podium-side .chaos-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-}
+  .spacer-sm {
+    height: 10px;
+  }
 
-.podium-side .chaos-title {
-  margin: 2px 0 0 0;
-  font-family: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Garamond, Georgia, serif;
-  letter-spacing: 0.3px;
-  font-size: 18px;
-  white-space: nowrap;
-}
+  .meta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+  }
 
-  /* Full-width bleed inside whatever max-width layout wrapper you have */
-.bleed {
-  width: 100%;
-  max-width: none;
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
 
-  /* center/bleed without 100vw overflow issues */
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
+  .event-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
 
-  padding-left: 24px;
-  padding-right: 24px;
-  box-sizing: border-box;
-}
+  .event-titlewrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
 
-@media (max-width: 640px) {
+  .event-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .event-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  .event-subtitle {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    opacity: 0.65;
+    line-height: 1.2;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .debug {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    gap: 6px;
+  }
+
+  .list {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  ol {
+    margin: 0;
+    padding-left: 22px;
+  }
+
+  li {
+    margin: 6px 0;
+  }
+
+  .field {
+    display: grid;
+    gap: 8px;
+  }
+
+  .input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.28);
+    color: rgba(255, 255, 255, 0.92);
+    outline: none;
+  }
+
+  .input:focus {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .input:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .page-wide {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 640px) {
+    .page-wide {
+      padding: 0 14px;
+    }
+  }
+
+  .podium-side .chaos-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .podium-side .chaos-title {
+    margin: 2px 0 0 0;
+    font-family: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Garamond, Georgia, serif;
+    letter-spacing: 0.3px;
+    font-size: 18px;
+    white-space: nowrap;
+  }
+
   .bleed {
-    padding-left: 14px;
-    padding-right: 14px;
+    width: 100%;
+    max-width: none;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    padding-left: 24px;
+    padding-right: 24px;
+    box-sizing: border-box;
   }
-}
 
+  @media (max-width: 640px) {
+    .bleed {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+  }
 </style>

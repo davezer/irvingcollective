@@ -43,6 +43,7 @@ export async function load({ platform }) {
       SELECT
         es.user_id,
         es.event_id,
+        e.slug,
         e.name AS event_name,
         e.start_at,
         es.score_total,
@@ -64,6 +65,7 @@ export async function load({ platform }) {
 
     byUser[uid].push({
       event_id: r.event_id,
+      slug: r.slug,
       event_name: r.event_name,
       start_at: r.start_at,
       points: Number(r.score_total ?? 0),

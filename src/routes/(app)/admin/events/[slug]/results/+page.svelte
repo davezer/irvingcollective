@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
   import { scoreDaytonaEntry } from '$lib/scoring/daytona.js';
   import { enhance } from '$app/forms';
+  import { eventDisplay } from '$lib/events/displayNames';
 
 let publishing = false;
 let publishError = '';

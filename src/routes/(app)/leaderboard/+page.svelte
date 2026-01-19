@@ -1,4 +1,6 @@
 <script>
+  import { eventDisplay } from '$lib/events/displayNames';
+  import Pill from '$lib/ui/Pill.svelte';
   export let data;
 
   let expanded = new Set(); // user_id set
@@ -18,6 +20,29 @@
   function hasAnyBreakdown(ev) {
     return Boolean(ev?.totals || ev?.breakdown);
   }
+
+    function evTitle(ev) {
+    // ev.slug is strongly preferred. If it's missing, we fall back to official name.
+    return eventDisplay({ slug: ev?.slug, name: ev?.event_name }).title;
+  }
+
+  function evSubtitle(ev) {
+    return eventDisplay({ slug: ev?.slug, name: ev?.event_name }).subtitle;
+  }
+
+  function evIsPast(ev) {
+  if (!ev?.start_at) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return now >= Number(ev.start_at);
+}
+
+function evStatusText(ev) {
+  return evIsPast(ev) ? 'Complete' : 'Upcoming';
+}
+
+function evStatusClass(ev) {
+  return evIsPast(ev) ? 'pill pill--gold' : 'pill pill--green';
+}
 </script>
 
 <div class="card">
@@ -37,11 +62,12 @@
         <col />
         <col class="col-points" />
       </colgroup>
+
       <thead>
         <tr>
-          <th>Rank</th>
-          <th>GM</th>
-          <th class="right">Points</th>
+          <th class="rank-h">Rank</th>
+          <th class="gm-h">GM</th>
+          <th class="right points-h">Points</th>
         </tr>
       </thead>
 
@@ -72,11 +98,28 @@
                   {#if data.byUser?.[row.user_id]?.length}
                     {#each data.byUser[row.user_id] as ev (ev.event_id)}
                       <div class="ev">
-                        <div class="ev-top">
-                          <div class="ev-title">
-                            <div class="ev-name">{ev.event_name}</div>
-                            <div class="ev-date muted">{fmtDate(ev.start_at)}</div>
+                        <div class="event-top">
+                          <div class="event-titlewrap">
+                            <div class="event-name-row">
+                              {#if eventDisplay(ev).logo}
+                                <img
+                                  class="event-logo"
+                                  src={eventDisplay(ev).logo}
+                                  alt={`${eventDisplay(ev).title} logo`}
+                                  loading="lazy"
+                                />
+                              {/if}
+
+                              <div class="event-name">{eventDisplay(ev).title}</div>
+                            </div>
+
+                            {#if eventDisplay(ev).subtitle}
+                              <div class="event-subtitle">{eventDisplay(ev).subtitle}</div>
+                            {/if}
                           </div>
+
+                          <span class={evStatusClass(ev)}>{evStatusText(ev)}</span>
+                        </div>
 
                           <div class="ev-points">{ev.points}</div>
                         </div>
@@ -115,7 +158,7 @@
                         {:else}
                           <div class="muted" style="margin-top: 8px;">No breakdown available.</div>
                         {/if}
-                      </div>
+                      
                     {/each}
                   {:else}
                     <div class="muted">No scored events yet.</div>
@@ -129,8 +172,6 @@
     </table>
   </div>
 </div>
-
-
 <style>
   .right { text-align: right; }
 
@@ -183,12 +224,40 @@
   .gm-btn:hover .name { text-decoration: underline; }
 
   .chev {
-    width: 18px;
-    opacity: 0.85;
+    width: 14px;
     display: inline-block;
+    opacity: 0.85;
     transform: translateY(-1px);
   }
 
+  /* --- Fun name + official subtitle styling in expanded events --- */
+  .ev-name {
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .ev-subname {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    opacity: 0.7;
+    line-height: 1.2;
+  }
+.event-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.event-logo {
+  width: 95px;
+  height: 95px;
+  border-radius: 55px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  border: 1px solid rgba(131, 118, 3, 0.637);
+  background: rgba(0,0,0,0.25);
+}
   /* Expanded section inside table */
   tr.detail td {
     padding: 0 16px 16px;

@@ -2,6 +2,7 @@
   import Card from '$lib/ui/Card.svelte';
   import SectionHeader from '$lib/ui/SectionHeader.svelte';
   import Pill from '$lib/ui/Pill.svelte';
+  import { eventDisplay } from '$lib/events/displayNames';
 
   export let data;
   const { events = [] } = data;
@@ -44,9 +45,28 @@
 
         <a class="event" href={`/games/${e.slug}`}>
           <div class="event-top">
-            <div class="event-name">{e.name}</div>
+            <div class="event-titlewrap">
+              <div class="event-name-row">
+                {#if eventDisplay(e).logo}
+                  <img
+                    class="event-logo"
+                    src={eventDisplay(e).logo}
+                    alt={`${eventDisplay(e).title} logo`}
+                    loading="lazy"
+                  />
+                {/if}
+
+                <div class="event-name">{eventDisplay(e).title}</div>
+              </div>
+
+              {#if eventDisplay(e).subtitle}
+                <div class="event-subtitle">{eventDisplay(e).subtitle}</div>
+              {/if}
+            </div>
+
             <Pill tone={st.tone}>{st.text}</Pill>
           </div>
+
 
           <div class="event-meta">
             <span class="muted">Locks</span>
@@ -100,11 +120,40 @@
     gap: 10px;
     flex-wrap: wrap;
   }
+.event-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.event-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+}
+  .event-titlewrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
 
   .event-name {
     font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Garamond, Georgia, serif;
     letter-spacing: 0.2px;
     font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .event-subtitle {
+    font-size: 0.82rem;
+    opacity: 0.65;
+    line-height: 1.2;
   }
 
   .event-meta {

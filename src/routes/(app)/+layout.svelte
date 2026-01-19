@@ -1,6 +1,41 @@
 <script>
+  import { onMount } from 'svelte';
   import { page } from '$app/stores';
   export let data; // contains { user } from (app)/+layout.server.js
+
+   let adminDD;
+
+  function closeAdminDD() {
+    adminDD?.removeAttribute('open');
+  }
+
+  function toggleAdminDD(forceOpen) {
+    if (!adminDD) return;
+    if (forceOpen === true) adminDD.setAttribute('open', '');
+    else if (forceOpen === false) adminDD.removeAttribute('open');
+    else adminDD.toggleAttribute('open');
+  }
+
+  onMount(() => {
+    function onDocPointerDown(e) {
+      if (!adminDD?.hasAttribute('open')) return;
+      const t = e.target;
+      if (t instanceof Node && adminDD.contains(t)) return; // click inside dropdown
+      closeAdminDD(); // click outside
+    }
+
+    function onDocKeyDown(e) {
+      if (e.key === 'Escape') closeAdminDD();
+    }
+
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    document.addEventListener('keydown', onDocKeyDown, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointerDown, true);
+      document.removeEventListener('keydown', onDocKeyDown, true);
+    };
+  });
 
   $: path = $page.url.pathname;
   const isActive = (href) => path === href || (href !== '/' && path.startsWith(href + '/'));
@@ -15,18 +50,55 @@
       </a>
 
       <nav class="nav">
-        <a href="/games" class:active={isActive('/games')}>Games</a>
-        <a href="/leaderboard" class:active={isActive('/leaderboard')}>Leaderboard</a>
-        <a href="/schedule" class:active={isActive('/schedule')}>Schedule</a>
-        <a href="/irvingcoin" class:active={isActive('/irvingcoin')}>IrvingCoin</a>
+        <div class="nav-main">
+          <a href="/games" class:active={isActive('/games')}>Games</a>
+          <a href="/leaderboard" class:active={isActive('/leaderboard')}>Leaderboard</a>
+          <a href="/schedule" class:active={isActive('/schedule')}>Schedule</a>
+          <a href="/irvingcoin" class:active={isActive('/irvingcoin')}>IrvingCoin</a>
+        </div>
 
-        {#if data?.user?.role === 'admin'}
-          <span class="nav-sep" aria-hidden="true">•</span>
-          <a href="/admin/users" class:active={isActive('/admin/users')}>Users</a>
-          <a href="/admin/invites" class:active={isActive('/admin/invites')}>Invites</a>
-          <a href="/admin/events" class:active={isActive('/admin/events')}>Events</a>
-        {/if}
+       {#if data?.user?.role === 'admin'}
+        <details class="nav-dd" bind:this={adminDD}>
+          <summary
+            class="nav-dd__summary"
+            aria-label="Admin menu"
+            on:click|preventDefault={() => toggleAdminDD()}
+          >
+            Admin <span class="nav-dd__chev" aria-hidden="true">▾</span>
+          </summary>
+
+          <div class="nav-dd__menu" role="menu">
+            <a
+              role="menuitem"
+              href="/admin/events"
+              class:active={isActive('/admin/events')}
+              on:click={closeAdminDD}
+            >
+              Events
+            </a>
+
+            <a
+              role="menuitem"
+              href="/admin/users"
+              class:active={isActive('/admin/users')}
+              on:click={closeAdminDD}
+            >
+              Users
+            </a>
+
+            <a
+              role="menuitem"
+              href="/admin/invites"
+              class:active={isActive('/admin/invites')}
+              on:click={closeAdminDD}
+            >
+              Invites
+            </a>
+          </div>
+        </details>
+      {/if}
       </nav>
+
 
       <div class="user">
         <div class="user-chip" title="Signed in">
@@ -106,12 +178,12 @@
 
   /* Nav */
   .nav {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
   .nav a {
     text-decoration: none;
@@ -135,12 +207,142 @@
     border-color: rgba(214,177,94,0.35);
     background: rgba(214,177,94,0.10);
   }
+/* keep main links grouped */
+.nav-main {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
 
-  .nav-sep {
-    opacity: 0.35;
-    padding: 0 6px;
-    user-select: none;
+/* --- Admin dropdown --- */
+.nav-dd {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-dd > summary {
+  list-style: none;
+}
+.nav-dd > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-dd__summary {
+  cursor: pointer;
+  user-select: none;
+
+  padding: 10px 12px;
+  border-radius: 999px;
+  line-height: 1;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.10s ease;
+}
+
+.nav-dd__summary:hover {
+  border-color: rgba(214, 177, 94, 0.28);
+  background: rgba(214, 177, 94, 0.06);
+  transform: translateY(-1px);
+}
+
+.nav-dd[open] .nav-dd__summary {
+  border-color: rgba(214, 177, 94, 0.40);
+  background: rgba(214, 177, 94, 0.10);
+}
+
+.nav-dd__chev {
+  opacity: 0.8;
+  font-size: 12px;
+  transform: translateY(1px);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.nav-dd[open] .nav-dd__chev {
+  transform: translateY(1px) rotate(180deg);
+  opacity: 0.95;
+}
+
+.nav-dd__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+
+  min-width: 190px;
+  padding: 10px;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(12px);
+
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+  z-index: 60;
+
+  display: grid;
+  gap: 8px;
+
+  /* subtle entrance */
+  transform-origin: top right;
+  animation: ddIn 120ms ease-out;
+}
+
+@keyframes ddIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.nav-dd__menu a {
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.92);
+
+  padding: 10px 10px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.10s ease;
+}
+
+.nav-dd__menu a:hover {
+  border-color: rgba(214, 177, 94, 0.28);
+  background: rgba(214, 177, 94, 0.06);
+  transform: translateY(-1px);
+}
+
+.nav-dd__menu a.active {
+  border-color: rgba(214, 177, 94, 0.48);
+  background: rgba(214, 177, 94, 0.12);
+}
+
+@media (max-width: 860px) {
+  .nav-dd__menu {
+    right: auto;
+    left: 0;
+    transform-origin: top left;
   }
+}
+
+/* Mobile: don't let it overflow weirdly */
+@media (max-width: 860px) {
+  .nav-dd__menu {
+    right: auto;
+    left: 0;
+  }
+}
+
+
 
   /* User area */
   .user {
@@ -229,4 +431,6 @@
       justify-content: flex-start;
     }
   }
+
+
 </style>

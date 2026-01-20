@@ -1,4 +1,5 @@
 <script>
+  import { getLeaderboardBreakdownComponent } from '$lib/games/leaderboard/index.js';
   import { eventDisplay } from '$lib/events/displayNames';
   import Pill from '$lib/ui/Pill.svelte';
   export let data;
@@ -98,66 +99,52 @@ function evStatusClass(ev) {
                   {#if data.byUser?.[row.user_id]?.length}
                     {#each data.byUser[row.user_id] as ev (ev.event_id)}
                       <div class="ev">
-                        <div class="event-top">
-                          <div class="event-titlewrap">
-                            <div class="event-name-row">
-                              {#if eventDisplay(ev).logo}
-                                <img
-                                  class="event-logo"
-                                  src={eventDisplay(ev).logo}
-                                  alt={`${eventDisplay(ev).title} logo`}
-                                  loading="lazy"
-                                />
-                              {/if}
+                        <div class="ev-head">
+                          <div class="event-top">
+                            <div class="event-titlewrap">
+                              <div class="event-name-row">
+                                {#if eventDisplay(ev).logo}
+                                  <img
+                                    class="event-logo"
+                                    src={eventDisplay(ev).logo}
+                                    alt={`${eventDisplay(ev).title} logo`}
+                                    loading="lazy"
+                                  />
+                                {/if}
 
-                              <div class="event-name">{eventDisplay(ev).title}</div>
+                                <div class="event-text">
+                                  <div class="event-name">{eventDisplay(ev).title}</div>
+                                  {#if eventDisplay(ev).subtitle}
+                                    <div class="event-subtitle">{eventDisplay(ev).subtitle}</div>
+                                  {/if}
+                                </div>
+
+                                <span class={evStatusClass(ev)}>{evStatusText(ev)}</span>
+                              </div>
                             </div>
-
-                            {#if eventDisplay(ev).subtitle}
-                              <div class="event-subtitle">{eventDisplay(ev).subtitle}</div>
-                            {/if}
                           </div>
-
-                          <span class={evStatusClass(ev)}>{evStatusText(ev)}</span>
-                        </div>
 
                           <div class="ev-points">{ev.points}</div>
                         </div>
 
                         {#if hasAnyBreakdown(ev)}
-                          <div class="chips">
-                            <div class="chip">
-                              <span class="k">Exact</span>
-                              <span class="v">{ev.totals?.exact ?? 0}</span>
-                            </div>
-
-                            <div class="chip">
-                              <span class="k">Bonus</span>
-                              <span class="v">{ev.totals?.bonus ?? 0}</span>
-                            </div>
-
-                            <div class="chip">
-                              <span class="k">Chaos</span>
-                              <span class="v">{ev.totals?.chaos ?? 0}</span>
-                            </div>
-
-                            {#if ev.breakdown?.podiumExacta}
-                              <div class="chip chip--badge">
-                                <span class="k">Podium</span>
-                                <span class="v">✔</span>
+                          {#if ev?.type}
+                            {@const Breakdown = getLeaderboardBreakdownComponent(ev.type)}
+                            {#if Breakdown}
+                              <svelte:component this={Breakdown} ev={ev} teamLogoById={data.teamLogoById} />
+                            {:else}
+                              <div class="muted" style="margin-top: 8px;">
+                                No breakdown renderer registered for <code>{ev.type}</code>.
                               </div>
                             {/if}
-
-                            {#if ev.breakdown?.chaos?.inTop10}
-                              <div class="chip chip--badge">
-                                <span class="k">Chaos Hit</span>
-                                <span class="v">P{ev.breakdown.chaos.finishPos}</span>
-                              </div>
-                            {/if}
-                          </div>
+                          {:else}
+                            <div class="muted" style="margin-top: 8px;">Missing event type.</div>
+                          {/if}
                         {:else}
                           <div class="muted" style="margin-top: 8px;">No breakdown available.</div>
                         {/if}
+                      </div>
+
                       
                     {/each}
                   {:else}
@@ -316,17 +303,6 @@ function evStatusClass(ev) {
     background: rgba(255,255,255,0.04);
   }
 
-  .chip .k {
-    font-weight: 750;
-    font-size: 0.85rem;
-    opacity: 0.9;
-  }
-
-  .chip .v {
-    font-weight: 950;
-    font-size: 0.95rem;
-  }
-
   .chip--badge {
     border-color: rgba(255,210,120,0.22);
     background: rgba(255,210,120,0.06);
@@ -357,5 +333,203 @@ td.gm { padding-left: 6px; }
 /* Keep the GM button compact */
 .gm-btn { gap: 8px; }
 .chev { width: 14px; }
+/* ---------------------------
+   COMPACT MODE OVERRIDES
+---------------------------- */
 
+/* Overall container padding tighter */
+.detail-inner {
+  padding: 10px 12px;            /* was 12px 14px */
+}
+
+/* Each event block: less vertical space */
+.ev {
+  padding: 8px 0;                /* was 10px 0 */
+}
+
+/* Make the event header align nicely and reduce height */
+.event-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;  /* logo | text | status */
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+/* Smaller logo */
+.event-logo {
+  width: 64px;                   /* was 95px */
+  height: 64px;
+  border-radius: 18px;           /* was 55px */
+}
+
+/* Title + subtitle tighter */
+.event-name {
+  font-weight: 850;
+  font-size: 1rem;               /* slightly smaller */
+  line-height: 1.15;
+}
+
+.event-subtitle {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  opacity: 0.7;
+  line-height: 1.15;
+}
+
+/* Status pill smaller */
+.pill {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+/* Points in the top-right: tighter and aligned */
+.ev-points {
+  font-weight: 950;
+  min-width: 52px;
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+/* Chips: smaller + less vertical space */
+.chips {
+  gap: 6px;                      /* was 8px */
+  margin-top: 8px;               /* was 10px */
+}
+
+.chip {
+  padding: 5px 9px;              /* was 6px 10px */
+  gap: 7px;                      /* was 8px */
+  font-size: 0.9rem;
+}
+
+.chip .k {
+  font-size: 0.78rem;            /* was 0.85rem */
+}
+
+.chip .v {
+  font-size: 0.9rem;             /* was 0.95rem */
+}
+
+/* If you added the mini logo inside chips, keep it tiny */
+.chip img.logo {
+  width: 16px;
+  height: 16px;
+}
+
+/* Tighten table row padding slightly (optional) */
+tbody td {
+  padding: 10px 12px;            /* was 12px 12px */
+}
+.detail-inner {
+  border-radius: 12px;
+  background: rgba(0,0,0,0.14);  /* slightly lighter */
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.event-subtitle { display: none; }
+
+/* --- tighter expanded rows --- */
+.detail-inner {
+  padding: 8px 10px;
+}
+
+/* Event block tighter */
+.ev {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ev:last-child { border-bottom: 0; }
+
+/* Head row: logo/title/status on left, points on right */
+.ev-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Keep header compact */
+.event-top { width: 100%; }
+
+/* Row with logo + text + status */
+.event-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Slightly smaller logo */
+.event-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+}
+
+/* Text tighter */
+.event-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.event-name {
+  font-weight: 900;
+  font-size: 0.98rem;
+  line-height: 1.1;
+}
+
+.event-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  line-height: 1.1;
+}
+
+/* ✅ Status pill should NOT expand — make it auto sized */
+.event-name-row > .pill {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  justify-self: end;
+}
+
+/* Points tighter */
+.ev-points {
+  min-width: 52px;
+  text-align: right;
+  font-weight: 950;
+  font-size: 0.95rem;
+}
+
+/* Chips tighter and closer to header */
+.chips {
+  margin-top: 8px;
+  gap: 6px;
+}
+
+/* Smaller chips */
+.chip {
+  padding: 5px 9px;
+  gap: 7px;
+}
+
+.chip .k { font-size: 0.78rem; }
+.chip .v { font-size: 0.9rem; }
+
+/* If you have chip logos */
+.chip img.logo {
+  width: 15px;
+  height: 15px;
+}
+.section-head .h2 {
+  font-size: 1.2rem;
+}
+.kicker {
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+}
 </style>

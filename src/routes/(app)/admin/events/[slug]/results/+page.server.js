@@ -7,7 +7,7 @@ import {
   actionSyncSeeds
 } from '$lib/games/adminResults.server.js';
 
-export const load = async ({ locals, platform, params }) => {
+export const load = async ({ locals, platform, params, fetch }) => {
   if (!locals.user) throw redirect(302, '/login');
   // if (!locals.user.is_admin) throw redirect(302, "/");
 
@@ -15,13 +15,13 @@ export const load = async ({ locals, platform, params }) => {
   const event = await getEventBySlug(db, params.slug);
   if (!event) throw error(404, 'Event not found');
 
+  // ✅ pass SvelteKit fetch through as fetchImpl
   return loadAdminResults({ db, event, fetchImpl: fetch });
 };
 
 export const actions = {
-  syncSeeds: async ({ locals, platform, params, request }) => {
+  syncSeeds: async ({ locals, platform, params, request, fetch }) => {
     if (!locals.user) throw redirect(302, '/login');
-    // if (!locals.user.is_admin) throw redirect(302, "/");
 
     const db = platform.env.DB;
     const event = await getEventBySlug(db, params.slug);
@@ -30,9 +30,8 @@ export const actions = {
     return actionSyncSeeds({ db, event, request, fetchImpl: fetch });
   },
 
-  publish: async ({ locals, platform, params, request }) => {
+  publish: async ({ locals, platform, params, request, fetch }) => {
     if (!locals.user) throw redirect(302, '/login');
-    // if (!locals.user.is_admin) throw redirect(302, "/");
 
     const db = platform.env.DB;
     const event = await getEventBySlug(db, params.slug);

@@ -4,7 +4,20 @@ import { getResultsForEvent, upsertResultsForEvent } from '$lib/server/db/result
 import { getDriverOptionsForEvent } from '$lib/server/nascar/getDriverOptions.js';
 import { loadEntriesWithScores } from '$lib/games/adminResults.server.js';
 
-function buildDaytonaEntryDisplay(entryPayload) {
+function buildDriverMap(driverOptions) {
+  const map = new Map();
+  for (const o of driverOptions || []) {
+    if (!o?.id) continue;
+    map.set(String(o.id), {
+      id: String(o.id),
+      name: o?.name ? String(o.name) : String(o.id),
+      carNumber: o?.carNumber != null && String(o.carNumber).trim() ? String(o.carNumber).trim() : ''
+    });
+  }
+  return map;
+}
+
+function buildDaytonaEntryDisplay(entryPayload, driverMap) {
   const payload = entryPayload ?? {};
 
   const top10Snapshot = Array.isArray(payload.top10Snapshot) ? payload.top10Snapshot : [];
@@ -15,16 +28,36 @@ function buildDaytonaEntryDisplay(entryPayload) {
 
   const top10Display = Array.from({ length: 10 }, (_, i) => {
     const snap = top10Snapshot[i];
-    if (snap?.id) return snap;
+    if (snap?.id) {
+      return {
+        id: String(snap.id),
+        name: snap?.name ? String(snap.name) : String(snap.id),
+        carNumber: snap?.carNumber ? String(snap.carNumber) : ''
+      };
+    }
+
     const id = top10Ids[i] ?? null;
-    return id ? { id, name: `Driver ${id}`, carNumber: '' } : null;
+    if (!id) return null;
+
+    const opt = driverMap.get(String(id));
+    return opt
+      ? { id: String(id), name: opt.name, carNumber: opt.carNumber || '' }
+      : { id: String(id), name: `Driver ${id}`, carNumber: '' };
   }).filter(Boolean);
 
-  const chaosDisplay = chaosSnap?.id
-    ? chaosSnap
-    : chaosId
-      ? { id: chaosId, name: `Driver ${chaosId}`, carNumber: '' }
-      : null;
+  let chaosDisplay = null;
+  if (chaosSnap?.id) {
+    chaosDisplay = {
+      id: String(chaosSnap.id),
+      name: chaosSnap?.name ? String(chaosSnap.name) : String(chaosSnap.id),
+      carNumber: chaosSnap?.carNumber ? String(chaosSnap.carNumber) : ''
+    };
+  } else if (chaosId) {
+    const opt = driverMap.get(String(chaosId));
+    chaosDisplay = opt
+      ? { id: String(chaosId), name: opt.name, carNumber: opt.carNumber || '' }
+      : { id: String(chaosId), name: `Driver ${chaosId}`, carNumber: '' };
+  }
 
   return { top10Display, chaosDisplay };
 }
@@ -32,15 +65,18 @@ function buildDaytonaEntryDisplay(entryPayload) {
 export async function load({ db, event, fetchImpl }) {
   const results = await getResultsForEvent(db, event.id);
 
-  const opt = await getDriverOptionsForEvent({ event, fetch: fetchImpl });
+  // ✅ pass fetchImpl through
+  const opt = await getDriverOptionsForEvent({ event, fetchImpl });
   const driverOptions = opt.options || [];
   const optionsMode = opt.mode || '';
   const optionsNote = opt.note || '';
 
+  const driverMap = buildDriverMap(driverOptions);
+
   const entries = await loadEntriesWithScores({ db, eventId: event.id });
 
   const entriesDecorated = entries.map((e) => {
-    const { top10Display, chaosDisplay } = buildDaytonaEntryDisplay(e.payload);
+    const { top10Display, chaosDisplay } = buildDaytonaEntryDisplay(e.payload, driverMap);
     return { ...e, top10Display, chaosDisplay };
   });
 
@@ -68,7 +104,7 @@ export async function publish({ db, event, form }) {
   }
 
   const payload = { officialTop10Ids: top10 };
-
   await upsertResultsForEvent(db, event.id, payload);
+
   return { ok: true };
 }

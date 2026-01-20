@@ -9,6 +9,21 @@ function safeJsonParse(str) {
   }
 }
 
+function buildTeamLogoMapFromEntries(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const payload = safeJsonParse(r.payload_json) || {};
+    const snaps = Array.isArray(payload.teamSnapshots) ? payload.teamSnapshots : [];
+    for (const s of snaps) {
+      const id = s?.id != null ? String(s.id) : '';
+      const logo = s?.logo ? String(s.logo) : '';
+      if (id && logo && !map.has(id)) map.set(id, logo);
+    }
+  }
+  return Object.fromEntries(map);
+}
+
+
 export async function load({ platform }) {
   const db = platform?.env?.DB;
   if (!db) throw error(500, 'Database not available');
@@ -44,6 +59,7 @@ export async function load({ platform }) {
         es.user_id,
         es.event_id,
         e.slug,
+        e.type,
         e.name AS event_name,
         e.start_at,
         es.score_total,
@@ -66,6 +82,7 @@ export async function load({ platform }) {
     byUser[uid].push({
       event_id: r.event_id,
       slug: r.slug,
+      type: r.type,
       event_name: r.event_name,
       start_at: r.start_at,
       points: Number(r.score_total ?? 0),
@@ -74,5 +91,17 @@ export async function load({ platform }) {
     });
   }
 
-  return { totals, byUser };
+  // --- Madness logos: build a teamId -> logo map from saved entry snapshots ---
+  const entriesRes = await db
+    .prepare(
+      `
+      SELECT user_id, payload_json
+      FROM entries
+      `
+    )
+    .all();
+
+  const teamLogoById = buildTeamLogoMapFromEntries(entriesRes?.results ?? []);
+
+  return { totals, byUser, teamLogoById };
 }

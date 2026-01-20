@@ -17,7 +17,7 @@ function normalizeTeamSnap(x) {
 export async function load({ db, event }) {
   const results = await getResultsForEvent(db, event.id);
   const entries = await loadEntriesWithScores({ db, eventId: event.id });
-
+  
   // Derive pickedTeams unique across entries
   const teamMap = new Map();
 

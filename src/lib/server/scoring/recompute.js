@@ -1,6 +1,7 @@
 // src/lib/server/scoring/recompute.js
 import { getResultsForEvent } from "$lib/server/db/results.js";
 import { scoreDaytonaEntry } from "$lib/scoring/daytona.js";
+import { scoreMarchMadnessEntry } from "$lib/scoring/march_madness.js";
 
 function safeJsonParse(str) {
   try {
@@ -22,9 +23,18 @@ export async function recomputeScoresForEvent(db, event) {
   const officialPayload =
     typeof resultsPayload === "string" ? safeJsonParse(resultsPayload) : resultsPayload;
 
+  if (event.type === "daytona") {
   if (!officialPayload?.officialTop10Ids || officialPayload.officialTop10Ids.length !== 10) {
     return { ok: false, error: "Official results missing Top 10 (need 10 IDs)." };
   }
+}
+
+if (event.type === "madness") {
+  if (!officialPayload?.seedsByTeamId || !officialPayload?.winsByTeamId) {
+    return { ok: false, error: "Official results missing seedsByTeamId and/or winsByTeamId." };
+  }
+}
+
 
   // Pull all entries for this event
   const entriesRes = await db
@@ -45,10 +55,12 @@ export async function recomputeScoresForEvent(db, event) {
 
     if (event.type === "daytona") {
       scored = scoreDaytonaEntry({ entryPayload, resultsPayload: officialPayload });
+    } else if (event.type === "madness") {
+      scored = scoreMarchMadnessEntry({ entryPayload, resultsPayload: officialPayload });
     } else {
-      // Future event types
-      scored = { score_total: 0, breakdown: { totals: { exact: 0, inTop10: 0, chaos: 0, bonus: 0 } } };
+      scored = { score_total: 0, breakdown: { totals: { total: 0 }, notes: ["No scorer for this event type."] } };
     }
+
 
     await db
       .prepare(`

@@ -104,7 +104,7 @@ export async function publish({ db, event, form }) {
   }
 
   const payload = { officialTop10Ids: top10 };
-  await upsertResultsForEvent(db, event.id, payload);
+  await upsertResultsForEvent(db, event.id, payload, { setPublishedAt: true });
 
   return { ok: true };
 }

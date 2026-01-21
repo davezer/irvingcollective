@@ -68,13 +68,15 @@
 
   {#if topItems.length}
     {#each topItems as it (it.teamId)}
+    
       <div class="chip chip--badge">
+        <span class="k">Top</span>
         {#if it.logo}
           <img class="logo" src={it.logo} alt="" loading="lazy" />
         {/if}
-        <span class="k">Top</span>
+        
         <span class="v">
-          {it.seed != null ? `S${it.seed} ` : ''}{it.points} ({it.wins}W)
+          {it.seed != null ? `${it.seed} Seed | ` : ''}{it.points} Pts ({it.wins} Wins)
         </span>
       </div>
     {/each}

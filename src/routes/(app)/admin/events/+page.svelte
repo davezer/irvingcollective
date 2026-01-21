@@ -53,12 +53,10 @@
 
   <div class="card card--glow">
     <div class="table-wrap">
-      <table class="events">
+      <table class="admin-events-table">
         <colgroup>
-          <col />
-          <col class="col-type" />
-          <col class="col-start" />
-          <col class="col-lock" />
+          <col class="col-event" />
+          <col class="col-locks" />
           <col class="col-entries" />
           <col class="col-results" />
           <col class="col-actions" />
@@ -153,106 +151,190 @@
   .right { text-align: right; }
   .muted { opacity: 0.7; }
   .small { font-size: 0.85rem; }
+  .nowrap { white-space: nowrap; }
 
-.table-wrap {
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.18);
-  overflow-x: auto; /* ✅ allow scroll if viewport too small */
-}
+  /* ---------------------------
+     TABLE WRAP + TABLE CORE
+  ---------------------------- */
+  .table-wrap {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.18);
+    overflow: hidden; /* keep rounded corners */
+  }
 
-table.events {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto; /* ✅ let content size columns naturally */
-}
-table.events th:first-child,
-table.events td:first-child {
-  width: 42%;
-}
+  table.admin-events-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
 
-  thead th {
+  /* Column sizing — match your <colgroup> class names */
+table.admin-events-table col.col-event   { width: 50%; }   /* <-- KEY */
+table.admin-events-table col.col-locks   { width: 15%; }
+table.admin-events-table col.col-entries { width: 10%; }
+table.admin-events-table col.col-results { width: 12%; }
+table.admin-events-table col.col-actions { width: 10%; }
+
+  table.admin-events-table thead th {
     text-align: left;
-    padding: 12px 14px;
+    padding: 10px 12px;
     font-weight: 900;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
     font-size: 0.92rem;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    background: transparent;
+    white-space: nowrap;
   }
 
-  tbody td {
-    padding: 12px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+  table.admin-events-table tbody td {
+    padding: 16px 14px;
     vertical-align: middle;
+    background: transparent;
+    border-bottom: 0; /* row border handles dividers */
   }
 
-  tbody tr:hover td {
-    background: rgba(255,255,255,0.03);
+  table.admin-events-table tbody tr {
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  table.admin-events-table tbody tr:last-child {
+    border-bottom: 0;
   }
 
-  tbody tr:last-child td { border-bottom: 0; }
+  /* Smooth hover overlay (no choppy cell blocks) */
+  table.admin-events-table tbody tr::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(212, 175, 55, 0.06);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+    z-index: 0;
+  }
 
+  /* Left accent on hover */
+  table.admin-events-table tbody tr::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 999px;
+    background: rgba(212, 175, 55, 0.45);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+    z-index: 0;
+  }
 
-col.col-start { width: 200px; }
-col.col-lock { width: 200px; }
-col.col-entries { width: 90px; }
-col.col-results { width: 230px; }  /* ✅ give Results room */
-col.col-actions { width: 230px; }  /* ✅ keep buttons visible */
+  table.admin-events-table tbody tr:hover::before,
+  table.admin-events-table tbody tr:hover::after {
+    opacity: 1;
+  }
 
+  /* Ensure cell content sits above overlays */
+  table.admin-events-table thead th,
+  table.admin-events-table tbody td {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------------------------
+     CELL CONTENT LAYOUT
+  ---------------------------- */
 .event-cell {
   display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 12px;
+  grid-template-columns: 44px minmax(0, 1fr);  /* <-- KEY */
+  gap: 14px;
   align-items: center;
 }
 
-.logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  object-fit: cover;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.25);
-}
+  .logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.25);
+  }
 
-.event-text {
-  display: grid;
-  gap: 3px; /* tighter */
-}
+  .event-text {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
 
-.title {
+ .title {
   font-weight: 950;
-  line-height: 1.1;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.subtitle {
-  font-size: 0.85rem;
-  line-height: 1.1;
-  opacity: 0.72;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.slug {
-  font-size: 0.78rem;
-  opacity: 0.6;
-  line-height: 1.1;
+  line-height: 1.12;
+
+  /* allow wrapping (no ellipsis) */
+  white-space: normal;
+  overflow: visible;
+
+  /* clamp to 2 lines so it doesn't blow up row height */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.results-cell {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-}
-.pill {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;          /* ✅ consistent */
-  padding: 0 12px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
+  .subtitle {
+    font-size: 0.85rem;
+    line-height: 1.1;
+    opacity: 0.72;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .slug {
+    font-size: 0.78rem;
+    opacity: 0.6;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Locks column text: keep it from wrapping ugly */
+  td.locks-col { white-space: normal; }
+
+  .results-cell {
+    display: grid;
+    gap: 6px;
+    justify-items: start;
+  }
+
+  .actions-cell {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------
+     PILLS + BUTTONS
+  ---------------------------- */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .entries-pill {
+    min-width: 42px;
+    font-weight: 900;
+  }
 
   .pill--muted {
     border-color: rgba(255,255,255,0.12);
@@ -266,74 +348,38 @@ col.col-actions { width: 230px; }  /* ✅ keep buttons visible */
     font-size: 0.92rem;
   }
 
-.actions-cell {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-  white-space: nowrap;
-}
+  .btn--ghost {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.9);
+  }
 
-/* Ghost button */
-.btn--ghost {
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.9);
-}
+  .btn--ghost:hover {
+    background: rgba(255,255,255,0.06);
+  }
 
-.btn--ghost:hover {
-  background: rgba(255,255,255,0.06);
-}
+  .btn--ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-.btn--ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.nowrap {
-  white-space: nowrap;
-}
-
-td.locks-col,
-td.entries-col,
-td.results-col,
-td.actions-col {
-  vertical-align: middle;
-}
-
-td.entries-col,
-td.results-col,
-td.actions-col {
-  padding-top: 14px;
-  padding-bottom: 14px;
-}
-tbody tr {
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-tbody tr:last-child {
-  border-bottom: 0;
-}
-tbody td {
-  padding: 14px 14px;
-  vertical-align: middle; /* ✅ key */
-  border-bottom: 0;       /* ✅ remove per-cell borders */
-}
-thead th {
-  padding: 10px 12px;
-}
-.entries-pill {
-  min-width: 42px;
-  justify-content: center;
-  font-weight: 900;
-}
+  /* ---------------------------
+     RESPONSIVE
+  ---------------------------- */
   @media (max-width: 820px) {
-    col.col-start, col.col-results { width: 180px; }
+    table.admin-events-table col.col-locks   { width: 170px; }
+    table.admin-events-table col.col-results { width: 150px; }
+    table.admin-events-table col.col-actions { width: 130px; }
   }
 
   @media (max-width: 680px) {
     .page { padding: 16px; }
-    col.col-type { width: 92px; }
-    col.col-actions { width: 90px; }
-    col.col-start, col.col-results { width: 160px; }
+
     .logo { width: 38px; height: 38px; border-radius: 12px; }
+
+    table.admin-events-table col.col-locks   { width: 160px; }
+    table.admin-events-table col.col-entries { width: 90px; }
+    table.admin-events-table col.col-results { width: 140px; }
+    table.admin-events-table col.col-actions { width: 120px; }
   }
 </style>

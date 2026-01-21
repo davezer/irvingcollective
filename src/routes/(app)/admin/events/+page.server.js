@@ -20,7 +20,7 @@ export const load = async ({ locals, platform }) => {
         e.start_at,
 
         r.published_at AS resultsPublishedAt,
-        CASE WHEN r.payload_json IS NOT NULL AND r.payload_json != '' THEN 1 ELSE 0 END AS resultsPublished,
+        CASE WHEN r.published_at IS NOT NULL AND r.published_at != '' THEN 1 ELSE 0 END AS resultsPublished,
 
         COALESCE(ec.entry_count, 0) AS entriesSubmitted
       FROM events e

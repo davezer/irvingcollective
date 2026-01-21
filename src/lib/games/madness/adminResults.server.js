@@ -100,14 +100,15 @@ export async function publish({ db, event, form }) {
 
   const now = Math.floor(Date.now() / 1000);
 
-  await mergeResultsPayload({
+    await mergeResultsPayload({
     db,
     eventId: event.id,
     now,
+    setPublishedAt: true, // ✅ writes results.published_at
     patch: {
       seedsByTeamId,
       winsByTeamId,
-      publishedAt: now
+      publishedAt: now // optional: keep inside payload if you like
     }
   });
 

@@ -1,10 +1,12 @@
 <script>
   import { enhance } from '$app/forms';
   import MarchTeamPicker from '$lib/components/MarchTeamPicker.svelte';
+  import RoundTracker from './RoundTracker.svelte';
 
   export let event;
   export let locked = false;
   export let entry = null;
+  export let results;
 
   // options + load state from parent route
   export let options = [];
@@ -60,6 +62,15 @@
     picks = pendingIds.map((id) => map.get(id)).filter(Boolean).slice(0, 4);
     pendingIds = [];
   }
+
+  $: resultsPayload = results?.payload || null;
+  $: selectedTeams =
+  (entry?.payload?.teamSnapshots?.length ? entry.payload.teamSnapshots : picks).map((t) => ({
+    id: String(t.id),
+    name: t.name,
+    abbr: t.abbrev ?? t.abbr ?? '',
+    logoUrl: t.logo ?? t.logoUrl ?? ''
+  }));
 </script>
 
 {#if locked}
@@ -196,10 +207,13 @@
               Make changes, then save.
             {/if}
           </div>
+          
         </MarchTeamPicker>
 
         <input type="hidden" name="teamIds" value={idsJson} />
         <input type="hidden" name="teamSnapshots" value={snapshotsJson} />
+        <RoundTracker {selectedTeams} {resultsPayload} />
+        
       </div>
     </div>
   </form>

@@ -2,6 +2,7 @@
 import { error } from '@sveltejs/kit';
 import { getEntryForUser } from '$lib/server/db/entries.js';
 import { saveEntryForEvent } from '$lib/games/server.js';
+import { getResultsForEvent } from '$lib/server/db/results.js';
 
 export async function load({ params, platform, locals }) {
   const db = platform?.env?.DB;
@@ -29,8 +30,10 @@ export async function load({ params, platform, locals }) {
     eventId: event.id,
     userId: locals.user.id
   });
+  
+  const results = event ? await getResultsForEvent(db, event.id) : null;
 
-  return { event, locked, entry };
+  return { event, locked, entry, results };
 }
 
 export const actions = {

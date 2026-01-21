@@ -2,7 +2,7 @@
 import { json } from '@sveltejs/kit';
 import { getOptionsForEvent } from '$lib/games/options.js';
 
-export async function GET({ params, platform }) {
+export async function GET({ params, platform, fetch }) {
   const db = platform?.env?.DB;
   if (!db) return json({ error: 'Database not available' }, { status: 500 });
 
@@ -18,6 +18,7 @@ export async function GET({ params, platform }) {
   const out = await getOptionsForEvent({
     db,
     event,
+    // ✅ must use SvelteKit-provided fetch so relative URLs work (and it stays consistent in CF)
     fetchImpl: fetch
   });
 

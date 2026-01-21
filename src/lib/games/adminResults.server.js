@@ -133,11 +133,19 @@ export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
  * Shared helper to merge results payload instead of clobbering.
  * Uses getResultsForEvent + upsertResultsForEvent you already have.
  */
-export async function mergeResultsPayload({ db, eventId, patch, now }) {
+export async function mergeResultsPayload({ db, eventId, patch, now, setPublishedAt = false, slug = null }) {
   const current = await getResultsForEvent(db, eventId);
-  const currentPayload = safeJsonParse(current?.payload_json) ?? {};
-  const next = { ...currentPayload, ...(patch ?? {}) };
+  const base = current?.payload && typeof current.payload === 'object' ? current.payload : {};
+  const next = { ...base, ...(patch && typeof patch === 'object' ? patch : {}) };
 
-  await upsertResultsForEvent(db, eventId, next, now);
+  const nowSec = Number.isFinite(now) ? Number(now) : Math.floor(Date.now() / 1000);
+
+  await upsertResultsForEvent(db, eventId, next, {
+    nowSec,
+    setPublishedAt,
+    slug
+  });
+
   return next;
 }
+

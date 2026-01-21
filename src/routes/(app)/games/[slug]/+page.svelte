@@ -4,6 +4,7 @@
   import { getGameComponent, gameNeedsOptions } from '$lib/games/index.js';
 
   export let data;
+  const results = data.results;
 
   let event, locked, entry;
   $: ({ event, locked, entry } = data);
@@ -133,6 +134,7 @@
     {options}
     {loading}
     {loadError}
+    {results}
     onRetryOptions={fetchOptionsWithTimeout}
   />
 {/if}

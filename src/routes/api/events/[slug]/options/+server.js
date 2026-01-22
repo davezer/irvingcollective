@@ -18,9 +18,14 @@ export async function GET({ params, platform, fetch }) {
   const out = await getOptionsForEvent({
     db,
     event,
-    // ✅ must use SvelteKit-provided fetch so relative URLs work (and it stays consistent in CF)
+    // ✅ MUST use SvelteKit fetch (Cloudflare-safe + supports relative URLs)
     fetchImpl: fetch
   });
 
-  return json(out);
+  // optional: mild caching of the API response itself (you already cache inside options.js)
+  return json(out, {
+    headers: {
+      'cache-control': 'max-age=60'
+    }
+  });
 }

@@ -2,10 +2,12 @@
 import { error, fail } from '@sveltejs/kit';
 import { saveEntry as saveDaytonaEntry } from '$lib/games/daytona/server.js';
 import { saveEntry as saveMadnessEntry } from '$lib/games/madness/server.js';
+import { saveEntry as saveMastersEntry } from '$lib/games/masters/server.js';
 
 const SAVE_BY_TYPE = {
   daytona: saveDaytonaEntry,
-  madness: saveMadnessEntry
+  madness: saveMadnessEntry,
+  masters: saveMastersEntry
 };
 
 export async function saveEntryForEvent({ request, params, platform, locals }) {

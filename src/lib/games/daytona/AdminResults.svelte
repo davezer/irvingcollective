@@ -34,12 +34,14 @@
     }
   }
 
+  // Normalize all selections to strings
+  $: selected = selected.map((v) => (v ? String(v) : ''));
+
   // Local validity
   $: filledCount = selected.filter(Boolean).length;
   $: isComplete = filledCount === 10;
   $: isUnique = new Set(selected.filter(Boolean)).size === filledCount;
   $: canPreview = isComplete && isUnique;
-  $: selected = selected.map(v => (v ? String(v) : ''));
 
   // Fast id → option lookup
   $: driverMap = new Map((driverOptions || []).map((d) => [String(d.id), d]));
@@ -70,26 +72,36 @@
     });
   }
 
-  function availableOptions(idx) {
-    const taken = new Set(
-      selected
-        .map((v, i) => (i === idx ? null : v))
-        .filter(Boolean)
-        .map((v) => String(v))
-    );
+  // -----------------------------
+  // ✅ Bulletproof unique filtering
+  // -----------------------------
+  function normId(x) {
+    return x == null ? '' : String(x);
+  }
 
-    return (driverOptions || []).filter((d) => {
-      const id = String(d.id);
-      return !taken.has(id) || id === String(selected[idx] || '');
+  function buildTakenSet(top10) {
+    return new Set((top10 || []).map(normId).filter(Boolean));
+  }
+
+  // For dropdown idx: exclude picks in all other slots, BUT keep current selection visible.
+  function optionsForIndex(allOptions, top10, idx) {
+    const current = normId(top10?.[idx] || '');
+    const taken = buildTakenSet(top10);
+    if (current) taken.delete(current);
+
+    return (allOptions || []).filter((d) => {
+      const id = normId(d.id);
+      if (!id) return false;
+      return !taken.has(id);
     });
   }
 
-  function dedupe(idx) {
-    const v = String(selected[idx] || '');
+  // When a slot changes, hard-dedupe across all slots: only keep the most recent selection.
+  function onPickChange(idx) {
+    const v = normId(selected[idx]);
     if (!v) return;
-    for (let i = 0; i < selected.length; i++) {
-      if (i !== idx && String(selected[i] || '') === v) selected[i] = '';
-    }
+
+    selected = selected.map((x, i) => (i !== idx && normId(x) === v ? '' : normId(x)));
   }
 
   // Preview scoring (mirror server scoring/daytonaScore.js)
@@ -145,6 +157,7 @@
     const chaosFinishPos = b?.chaos?.finishPos ?? null;
     const total = entry?.score?.score_total ?? exact + bonus + chaos;
 
+    // If your scorer doesn't provide inTop10, we derive it from finishPos below.
     return {
       total,
       breakdown: { exact, bonus, chaos, podiumExacta, chaosPenalty, chaosFinishPos }
@@ -154,26 +167,23 @@
   $: officialForPreview = selected.map(String);
 
   // Precompute view model (so template stays clean)
-$: entriesView = entries.map((e) => {
-  const p = canPreview ? previewScore(e, officialForPreview) : null;
-  const s = storedScore(e);
-  const show = p || s;
+  $: entriesView = entries.map((e) => {
+    const p = canPreview ? previewScore(e, officialForPreview) : null;
+    const s = storedScore(e);
+    const show = p || s;
 
-  const chaosFinishPos = show?.breakdown?.chaosFinishPos ?? null;
+    const chaosFinishPos = show?.breakdown?.chaosFinishPos ?? null;
 
-  // leaderboard-style boolean (inTop10) OR derive from finish pos
-  const chaosHit =
-    Boolean(show?.breakdown?.inTop10) || // if your scorer provides it
-    (Number.isFinite(chaosFinishPos) && chaosFinishPos >= 1 && chaosFinishPos <= 10);
+    const chaosHit =
+      (Number.isFinite(chaosFinishPos) && chaosFinishPos >= 1 && chaosFinishPos <= 10);
 
-  return {
-    ...e,
-    _preview: p,
-    _show: show,
-    chaosHit
-  };
-});
-
+    return {
+      ...e,
+      _preview: p,
+      _show: show,
+      chaosHit
+    };
+  });
 </script>
 
 <div class="page-wide">
@@ -221,23 +231,23 @@ $: entriesView = entries.map((e) => {
         {#each Array.from({ length: 10 }, (_, i) => i) as idx}
           <div class="field">
             <label class="muted" for={"pos" + (idx + 1)}>Pos {idx + 1}</label>
-            {#key `pos-${idx}`}
-              <select
-                id={"pos" + (idx + 1)}
-                class="input"
-                name={"pos" + (idx + 1)}
-                bind:value={selected[idx]}
-                on:change={() => dedupe(idx)}
-                required
-              >
-                <option value="">— select driver —</option>
-                {#each availableOptions(idx) as d (String(d.id))}
-                  <option value={String(d.id)}>
-                    {d.carNumber ? `#${d.carNumber} ` : ''}{d.name}
-                  </option>
-                {/each}
-              </select>
-            {/key}
+
+            <select
+              id={"pos" + (idx + 1)}
+              class="input"
+              name={"pos" + (idx + 1)}
+              bind:value={selected[idx]}
+              on:change={() => onPickChange(idx)}
+              required
+            >
+              <option value="">— select driver —</option>
+
+              {#each optionsForIndex(driverOptions, selected, idx) as d (String(d.id))}
+                <option value={String(d.id)}>
+                  {d.carNumber ? `#${d.carNumber} ` : ''}{d.name}
+                </option>
+              {/each}
+            </select>
           </div>
         {/each}
       </div>
@@ -301,14 +311,15 @@ $: entriesView = entries.map((e) => {
               <span class={"chip " + (e._show.breakdown.chaos < 0 ? 'chip--bad' : '')}>
                 <span class="k">Chaos</span><span class="v">{e._show.breakdown.chaos}</span>
               </span>
+
               {#if e.chaosHit}
-                <div class="chip chip--badge">
+                <span class="chip chip--badge">
                   <span class="k">Chaos Hit</span>
                   <span class="v">P{e._show.breakdown.chaosFinishPos}</span>
-                </div>
+                </span>
               {/if}
 
-                 <span class={"chip " + (e._show.breakdown.podiumExacta ? 'chip--badge' : '')}>
+              <span class={"chip " + (e._show.breakdown.podiumExacta ? 'chip--badge' : '')}>
                 <span class="k">Podium</span><span class="v">{e._show.breakdown.podiumExacta ? '✔' : '—'}</span>
               </span>
             </div>
@@ -342,6 +353,7 @@ $: entriesView = entries.map((e) => {
     {/if}
   </div>
 </div>
+
 
 <style>
   .page-wide {

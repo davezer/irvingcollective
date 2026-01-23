@@ -2,11 +2,16 @@
 import { getOptions as getDaytonaOptions } from '$lib/games/daytona/options.js';
 import { getOptions as getMadnessOptions } from '$lib/games/madness/options.js';
 import { getOptions as getMastersOptions } from '$lib/games/masters/options.js';
+import { getOptions as getDerbyOptions } from '$lib/games/kentucky-derby/options.js';
+// import { getOptions as getWorldCupOptions } from '$lib/games/world-cup/options.js';
 
 const OPTIONS_BY_TYPE = {
   daytona: getDaytonaOptions,
   madness: getMadnessOptions,
-  masters: getMastersOptions
+  masters: getMastersOptions,
+  derby: getDerbyOptions,
+  // worldcup: getWorldCupOptions
+
 };
 
 export function hasOptionsProvider(type) {

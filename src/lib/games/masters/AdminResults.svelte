@@ -1,5 +1,7 @@
 <script>
   import { enhance } from '$app/forms';
+  import { MASTERS_STAGE_LABELS, MASTERS_STAGE_KEYS, MASTERS_STAGE_POINTS } from '$lib/scoring/masters.js';
+
 
   export let data;
 
@@ -13,12 +15,10 @@
   $: currentStage = results?.payload?.stage || 'pre_r1';
   $: winnerId = results?.payload?.winnerId ? String(results.payload.winnerId) : '';
 
-  const STAGES = [
-    { id: 'pre_r1', label: 'Before Round 1 (1000)' },
-    { id: 'post_r1', label: 'Before Round 2 (500)' },
-    { id: 'post_r2', label: 'Before Round 3 (200)' },
-    { id: 'post_r3', label: 'Before Round 4 (50)' }
-  ];
+const STAGES = MASTERS_STAGE_KEYS.map((id) => ({
+  id,
+  label: `${MASTERS_STAGE_LABELS[id] ?? id} (${MASTERS_STAGE_POINTS[id] ?? 0})`
+}));
 
   $: golferMap = new Map(golferOptions.map((g) => [String(g.id), g]));;
 
@@ -131,7 +131,13 @@
             <div class="chips">
               <span class="chip chip--badge">
                 <span class="k">Stage</span>
-                <span class="v">{e?.payload?.lockStage || 'pre_r1'}</span>
+                {#key e?.payload?.lockStage}
+                  {@const stageKey = e?.payload?.lockStage || 'pre_r1'}
+                  <span class="v">
+                    {MASTERS_STAGE_LABELS[stageKey] ?? stageKey}
+                    ({MASTERS_STAGE_POINTS[stageKey] ?? 0})
+                  </span>
+                {/key}
               </span>
 
               {#if e.pickDisplay}

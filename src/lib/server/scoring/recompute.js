@@ -3,6 +3,7 @@ import { getResultsForEvent } from "$lib/server/db/results.js";
 import { scoreDaytonaEntry } from "$lib/scoring/daytona.js";
 import { scoreMarchMadnessEntry } from "$lib/scoring/march_madness.js";
 import { scoreMastersEntry } from '$lib/scoring/masters.js';
+import { scoreDerbyEntry } from '$lib/scoring/derby.js';
 
 function safeJsonParse(str) {
   try {
@@ -39,6 +40,11 @@ if (event.type === "masters") {
   if (!officialPayload?.winnerId) {
     return { ok: false, error: "Official results missing winnerId." };
   }
+  if (event.type === "derby") {
+  if (!officialPayload?.winnerHorseId || !officialPayload?.payout) {
+    return { ok: false, error: "Official results missing winnerHorseId and/or payout." };
+  }
+}
 }
 
 
@@ -64,8 +70,10 @@ if (event.type === "masters") {
     } else if (event.type === "madness") {
       scored = scoreMarchMadnessEntry({ entryPayload, resultsPayload: officialPayload });
     }  else if (event.type === "masters") {
-  scored = scoreMastersEntry({ entryPayload, resultsPayload: officialPayload });
-}
+      scored = scoreMastersEntry({ entryPayload, resultsPayload: officialPayload });
+    } else if (event.type === "derby") {
+      scored = scoreDerbyEntry({ entryPayload, resultsPayload: officialPayload });
+    }
     
     else {
       scored = { score_total: 0, breakdown: { totals: { total: 0 }, notes: ["No scorer for this event type."] } };

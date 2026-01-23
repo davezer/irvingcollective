@@ -23,10 +23,31 @@ function buildTeamLogoMapFromEntries(rows) {
   return Object.fromEntries(map);
 }
 
-
 export async function load({ platform }) {
   const db = platform?.env?.DB;
   if (!db) throw error(500, 'Database not available');
+
+  // --- DEBUG: DB fingerprint (schema-safe; no assumption of entry_scores.id) ---
+  try {
+    const fp = await db
+      .prepare(
+        `
+        SELECT
+          (SELECT COUNT(*) FROM users) AS users,
+          (SELECT COUNT(*) FROM entry_scores) AS entry_scores,
+          (SELECT COALESCE(MIN(user_id), '') FROM entry_scores) AS min_user_id,
+          (SELECT COALESCE(MAX(user_id), '') FROM entry_scores) AS max_user_id,
+          (SELECT COALESCE(MIN(event_id), '') FROM entry_scores) AS min_event_id,
+          (SELECT COALESCE(MAX(event_id), '') FROM entry_scores) AS max_event_id,
+          (SELECT COALESCE(SUM(score_total), 0) FROM entry_scores) AS sum_points
+        `
+      )
+      .first();
+
+    console.log('LEADERBOARD DB FINGERPRINT:', fp);
+  } catch (e) {
+    console.log('LEADERBOARD DB FINGERPRINT: failed', e);
+  }
 
   // Overall totals
   const totalsRes = await db
@@ -40,7 +61,7 @@ export async function load({ platform }) {
       LEFT JOIN entry_scores es ON es.user_id = u.id
       GROUP BY u.id
       ORDER BY points DESC, u.display_name ASC
-    `
+      `
     )
     .all();
 
@@ -67,7 +88,7 @@ export async function load({ platform }) {
       FROM entry_scores es
       JOIN events e ON e.id = es.event_id
       ORDER BY es.user_id, e.start_at ASC
-    `
+      `
     )
     .all();
 
@@ -77,7 +98,12 @@ export async function load({ platform }) {
     if (!byUser[uid]) byUser[uid] = [];
 
     const breakdown = safeJsonParse(r.breakdown_json);
+    
     const totals = breakdown?.totals ?? null;
+    if (r.type === 'derby') {
+      console.log('DERBY breakdown_json raw:', r.breakdown_json);
+      console.log('DERBY breakdown parsed:', breakdown);
+    }
 
     byUser[uid].push({
       event_id: r.event_id,

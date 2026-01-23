@@ -251,7 +251,15 @@ $: top3 = (data?.totals || []).slice(0, 3);
                           {#if ev?.type}
                             {@const Breakdown = getLeaderboardBreakdownComponent(ev.type)}
                             {#if Breakdown}
-                              <svelte:component this={Breakdown} ev={ev} teamLogoById={data.teamLogoById} />
+                              <svelte:component
+                                this={Breakdown}
+                                ev={ev}
+                                row={ev}
+                                breakdown={ev.breakdown}
+                                totals={ev.totals}
+                                points={ev.points}
+                                teamLogoById={data.teamLogoById}
+                              />
                             {:else}
                               <div class="muted" style="margin-top: 8px;">
                                 No breakdown renderer registered for <code>{ev.type}</code>.

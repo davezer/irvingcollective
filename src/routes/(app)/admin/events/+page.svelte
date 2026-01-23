@@ -37,6 +37,12 @@
     if (e?.resultsPublished) return { text: 'Published', cls: 'pill pill--gold' };
     return { text: 'Not published', cls: 'pill pill--muted' };
   }
+
+   function lockStatus(e) {
+    if (Number(e?.manual_lock) === 1) return { text: 'Locked (manual)', cls: 'pill pill--red' };
+    if (Number(e?.manual_unlock) === 1) return { text: 'Open (manual)', cls: 'pill pill--green' };
+    return { text: 'Auto', cls: 'pill pill--muted' };
+  }
 </script>
 
 
@@ -57,6 +63,7 @@
         <colgroup>
           <col class="col-event" />
           <col class="col-locks" />
+          <col class="col-lockstatus" />
           <col class="col-entries" />
           <col class="col-results" />
           <col class="col-actions" />
@@ -66,6 +73,7 @@
           <tr>
             <th>Event</th>
             <th>Locks</th>
+            <th>Lock</th>
             <th>Entries</th>
             <th>Results</th>
             <th class="right">Actions</th>
@@ -93,7 +101,40 @@
                   </div>
                 </td>
                 
-                <td class="muted nowrap locks-col">{fmtUnix(e.lock_at)}</td>
+                <td class="muted nowrap locks-col">{fmtUnix(e.lock_at)}
+                  <span class={lockStatus(e).cls}>{lockStatus(e).text}</span>
+
+                    <td class="muted nowrap locks-col">{fmtUnix(e.lock_at)}</td>
+
+                    <td class="lockstatus-col">
+                      <div class="lockstatus-wrap">
+                        {#if Number(e.manual_lock) === 1}
+                          <span class="pill pill--red">Locked (manual)</span>
+                        {:else if Number(e.manual_unlock) === 1}
+                          <span class="pill pill--green">Open (manual)</span>
+                        {:else}
+                          <span class="pill pill--muted">Auto</span>
+                        {/if}
+
+                        <form method="POST" action="?/setLockOverride" class="lock-actions">
+                          <input type="hidden" name="eventId" value={e.id} />
+
+                          {#if Number(e.manual_lock) === 1}
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="auto">Auto</button>
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="unlock">Unlock</button>
+                          {:else if Number(e.manual_unlock) === 1}
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="auto">Auto</button>
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="lock">Lock</button>
+                          {:else}
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="lock">Lock</button>
+                            <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="unlock">Unlock</button>
+                          {/if}
+                        </form>
+                      </div>
+                    </td>
+
+               
+                
 
                 <td class="entries-col">
                   <span class="pill pill--muted entries-pill">{e.entriesSubmitted}</span>
@@ -170,13 +211,39 @@
     border-collapse: separate;
     border-spacing: 0;
   }
+  table.admin-events-table col.col-lockstatus { width: 18%; }
 
   /* Column sizing — match your <colgroup> class names */
-table.admin-events-table col.col-event   { width: 50%; }   /* <-- KEY */
-table.admin-events-table col.col-locks   { width: 15%; }
-table.admin-events-table col.col-entries { width: 10%; }
-table.admin-events-table col.col-results { width: 12%; }
+table.admin-events-table col.col-event   { width: 42%; }
+table.admin-events-table col.col-locks   { width: 14%; }
+table.admin-events-table col.col-lockstatus { width: 22%; }
+table.admin-events-table col.col-entries { width: 8%; }
+table.admin-events-table col.col-results { width: 10%; }
 table.admin-events-table col.col-actions { width: 10%; }
+
+.lockstatus-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.lock-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill--red {
+  border-color: rgba(255,120,120,0.25);
+  background: rgba(255,120,120,0.08);
+  color: rgba(255,220,220,0.95);
+}
+
+.pill--green {
+  border-color: rgba(80,216,150,0.22);
+  background: rgba(80,216,150,0.07);
+  color: rgba(210,255,235,0.95);
+}
+
 
   table.admin-events-table thead th {
     text-align: left;

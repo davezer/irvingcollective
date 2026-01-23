@@ -5,11 +5,14 @@ import { recomputeScoresForEvent } from '$lib/server/scoring/recompute.js';
 import * as daytona from '$lib/games/daytona/adminResults.server.js';
 import * as madness from '$lib/games/madness/adminResults.server.js';
 import * as masters from '$lib/games/masters/adminResults.server.js';
+import * as derby from '$lib/games/kentucky-derby/adminResults.server.js';
+
 
 const HANDLERS = {
   daytona,
   madness,
-  masters
+  masters,
+  derby
 };
 
 export async function getEventBySlug(db, slug) {

@@ -10,36 +10,30 @@
   export let loadError = '';
   export let onRetryOptions = () => {};
 
-  // Masters pick
-  let pick = null;
+  // ✅ real form state (do NOT derive this from pick)
+  let golferId = '';
 
-  // Hydrate from server entry
-  let hydratedEntryRowId = null;
-  $: if (entry?.id && entry.id !== hydratedEntryRowId) {
-    hydratedEntryRowId = entry.id;
-    const id = entry?.payload?.golferId ? String(entry.payload.golferId) : '';
-    if (id && options?.length) {
-      pick = options.find((o) => String(o.id) === id) || { id, name: entry?.payload?.golferSnapshot?.name || null };
-    } else if (id) {
-      pick = { id, name: entry?.payload?.golferSnapshot?.name || null };
-    } else {
-      pick = null;
-    }
-  }
+  // Derived: selected golfer object
+  $: pick =
+    golferId && options?.length
+      ? options.find((o) => String(o.id) === String(golferId)) || { id: golferId, name: null }
+      : golferId
+        ? { id: golferId, name: entry?.payload?.golferSnapshot?.name || null }
+        : null;
 
-  // If options arrive later
-  $: if (options?.length && entry?.payload?.golferId && (!pick || !pick.name)) {
-    const id = String(entry.payload.golferId);
-    const found = options.find((o) => String(o.id) === id);
-    if (found) pick = found;
-  }
-
-  $: golferId = pick?.id ? String(pick.id) : '';
+  // ✅ snapshot always matches current pick
   $: golferSnapshot = JSON.stringify({
     id: golferId,
     name: pick?.name || null,
     country: pick?.country || null
   });
+
+  // Hydrate from server entry (once per entry id)
+  let hydratedEntryRowId = null;
+  $: if (entry?.id && entry.id !== hydratedEntryRowId) {
+    hydratedEntryRowId = entry.id;
+    golferId = entry?.payload?.golferId ? String(entry.payload.golferId) : '';
+  }
 
   // Save UX
   let saving = false;
@@ -47,8 +41,7 @@
   let savedPulse = false;
 
   // Dirty tracking
-  let lastSavedId = '';
-  $: if (entry?.payload?.golferId) lastSavedId = String(entry.payload.golferId);
+  $: lastSavedId = entry?.payload?.golferId ? String(entry.payload.golferId) : '';
   $: dirty = !locked && golferId && golferId !== lastSavedId;
 
   // Points label based on lockStage stored on entry
@@ -82,56 +75,56 @@
     </div>
   {:else}
     <form
-        method="POST"
-        action="?/save"
-        use:enhance={() => {
-            saving = true;
-            saveError = '';
-            savedPulse = false;
+      method="POST"
+      action="?/save"
+      use:enhance={() => {
+        saving = true;
+        saveError = '';
+        savedPulse = false;
 
-            return async ({ result, update }) => {
-            if (result.type === 'success') {
-                await update({ reset: false });
-                savedPulse = true;
-                setTimeout(() => (savedPulse = false), 1200);
-            } else if (result.type === 'failure') {
-                saveError = result.data?.message || 'Save failed.';
-            } else {
-                saveError = 'Save failed.';
-            }
-            saving = false;
-            };
-        }}
-        >
-        <input type="hidden" name="golferId" value={golferId} />
-        <input type="hidden" name="golferSnapshot" value={golferSnapshot} />
+        return async ({ result, update }) => {
+          if (result.type === 'success') {
+            await update({ reset: false });
+            savedPulse = true;
+            setTimeout(() => (savedPulse = false), 1200);
+          } else if (result.type === 'failure') {
+            saveError = result.data?.message || 'Save failed.';
+          } else {
+            saveError = 'Save failed.';
+          }
+          saving = false;
+        };
+      }}
+    >
+      <input type="hidden" name="golferId" value={golferId} />
+      <input type="hidden" name="golferSnapshot" value={golferSnapshot} />
 
-        <div class="row">
-            <label class="muted">Pick the winner</label>
-            <select class="input" bind:value={golferId} disabled={locked || saving} required>
-            <option value="">— select golfer —</option>
-            {#each options as g (String(g.id))}
-                <option value={String(g.id)}>{g.name}</option>
-            {/each}
-            </select>
+      <div class="row">
+        <label class="muted">Pick the winner</label>
+        <select class="input" bind:value={golferId} disabled={locked || saving} required>
+          <option value="">— select golfer —</option>
+          {#each options as g (String(g.id))}
+            <option value={String(g.id)}>{g.name}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--vip" type="submit" disabled={locked || saving || !golferId}>
+          {saving ? 'Saving…' : 'Save pick'}
+        </button>
+
+        <div class="muted">
+          {#if saveError}
+            <span style="color: rgba(255,120,120,0.95)">{saveError}</span>
+          {:else if savedPulse}
+            Saved ✅
+          {:else if golferId}
+            Points if he wins (based on your current lock stage): <strong>{pointsIfWins}</strong>
+          {/if}
         </div>
-
-        <div class="actions">
-            <button class="btn btn--vip" type="submit" disabled={locked || saving || !golferId}>
-            {saving ? 'Saving…' : 'Save pick'}
-            </button>
-
-            <div class="muted">
-            {#if saveError}
-                <span style="color: rgba(255,120,120,0.95)">{saveError}</span>
-            {:else if savedPulse}
-                Saved ✅
-            {:else if golferId}
-                Points if he wins (based on your current lock stage): <strong>{pointsIfWins}</strong>
-            {/if}
-            </div>
-        </div>
-        </form>
+      </div>
+    </form>
 
     <div class="muted" style="margin-top: 10px;">
       Your pick is sticky across rounds unless you change it.

@@ -7,7 +7,16 @@ export const MASTERS_STAGE_POINTS = {
   post_r3: 50   // after Round 3
 };
 
-export const MASTERS_STAGE_ORDER = ['pre_r1', 'post_r1', 'post_r2', 'post_r3'];
+// ✅ canonical key order (what you store)
+export const MASTERS_STAGE_KEYS = ['pre_r1', 'post_r1', 'post_r2', 'post_r3'];
+
+// ✅ display labels for UI
+export const MASTERS_STAGE_LABELS = {
+  pre_r1: 'Round 1',
+  post_r1: 'Round 2',
+  post_r2: 'Round 3',
+  post_r3: 'Round 4'
+};
 
 export function scoreMastersEntry({ entryPayload, resultsPayload }) {
   const winnerId = resultsPayload?.winnerId != null ? String(resultsPayload.winnerId) : null;

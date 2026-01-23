@@ -4,10 +4,13 @@
   import { getGameComponent, gameNeedsOptions } from '$lib/games/index.js';
 
   export let data;
+
+  // keep results as you had it
   const results = data.results;
 
-  let event, locked, entry;
-  $: ({ event, locked, entry } = data);
+  // ✅ include bankroll
+  let event, locked, entry, bankroll;
+  $: ({ event, locked, entry, bankroll } = data);
 
   $: Game = getGameComponent(event?.type);
 
@@ -135,6 +138,7 @@
     {loading}
     {loadError}
     {results}
+    {bankroll}
     onRetryOptions={fetchOptionsWithTimeout}
   />
 {/if}

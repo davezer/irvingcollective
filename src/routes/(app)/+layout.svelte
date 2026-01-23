@@ -44,7 +44,7 @@
 <div class="shell">
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/games">
+      <a class="brand" href="/">
         <div class="brand-title">Irving Collective</div>
         <div class="brand-tag">Offseason Lounge</div>
       </a>

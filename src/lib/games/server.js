@@ -4,12 +4,14 @@ import { saveEntry as saveDaytonaEntry } from '$lib/games/daytona/server.js';
 import { saveEntry as saveMadnessEntry } from '$lib/games/madness/server.js';
 import { saveEntry as saveMastersEntry } from '$lib/games/masters/server.js';
 import { saveEntry as saveDerbyEntry } from '$lib/games/kentucky-derby/server.js';
+import { saveEntry as saveWorldCupEntry } from '$lib/games/worldcup/server.js';
 
 const SAVE_BY_TYPE = {
   daytona: saveDaytonaEntry,
   madness: saveMadnessEntry,
   masters: saveMastersEntry,
-  derby: saveDerbyEntry
+  derby: saveDerbyEntry,
+  worldcup: saveWorldCupEntry
 };
 
 function isEventLocked(event, nowSec) {

@@ -31,7 +31,7 @@
         createdCode = j.created_code; // show once
         // user is also logged in; you can choose to auto-redirect after they copy
       } else {
-        window.location.href = '/games';
+        window.location.href = '/';
       }
       return;
     }
@@ -210,7 +210,7 @@
           <button class="btn btn--ghost" type="button" on:click={copyCode}>
             Copy
           </button>
-          <button class="btn" type="button" on:click={() => (window.location.href = '/games')}>
+          <button class="btn" type="button" on:click={() => (window.location.href = '/')}>
             Continue
           </button>
         </div>

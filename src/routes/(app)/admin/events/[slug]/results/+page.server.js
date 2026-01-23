@@ -4,7 +4,8 @@ import {
   getEventBySlug,
   loadAdminResults,
   actionPublish,
-  actionSyncSeeds
+  actionSyncSeeds,
+  actionAdvanceRound
 } from '$lib/games/adminResults.server.js';
 
 export const load = async ({ locals, platform, params, fetch }) => {
@@ -15,7 +16,6 @@ export const load = async ({ locals, platform, params, fetch }) => {
   const event = await getEventBySlug(db, params.slug);
   if (!event) throw error(404, 'Event not found');
 
-  // ✅ pass SvelteKit fetch through as fetchImpl
   return loadAdminResults({ db, event, fetchImpl: fetch });
 };
 
@@ -38,5 +38,15 @@ export const actions = {
     if (!event) return fail(404, { ok: false, error: 'Event not found' });
 
     return actionPublish({ db, event, request, fetchImpl: fetch });
+  },
+
+  advanceRound: async ({ locals, platform, params, request, fetch }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionAdvanceRound({ db, event, request, fetchImpl: fetch });
   }
 };

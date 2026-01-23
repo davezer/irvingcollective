@@ -1,3 +1,4 @@
+// src/lib/games/adminResults.server.js
 import { fail } from '@sveltejs/kit';
 import { getResultsForEvent, upsertResultsForEvent } from '$lib/server/db/results.js';
 import { recomputeScoresForEvent } from '$lib/server/scoring/recompute.js';
@@ -6,23 +7,16 @@ import * as daytona from '$lib/games/daytona/adminResults.server.js';
 import * as madness from '$lib/games/madness/adminResults.server.js';
 import * as masters from '$lib/games/masters/adminResults.server.js';
 import * as derby from '$lib/games/kentucky-derby/adminResults.server.js';
-
+import * as worldcup from '$lib/games/worldcup/adminResults.server.js';
 
 const HANDLERS = {
   daytona,
   madness,
   masters,
-  derby
+  derby,
+  worldcup
 };
 
-export async function getEventBySlug(db, slug) {
-  return await db
-    .prepare(`SELECT id, slug, name, type, start_at FROM events WHERE slug = ?`)
-    .bind(slug)
-    .first();
-}
-
-// ✅ make it local so eslint is happy
 function safeJsonParse(str) {
   try {
     return str ? JSON.parse(str) : null;
@@ -30,12 +24,18 @@ function safeJsonParse(str) {
     return null;
   }
 }
+
+export async function getEventBySlug(db, slug) {
+  return db
+    .prepare(`SELECT * FROM events WHERE slug = ? LIMIT 1`)
+    .bind(slug)
+    .first();
+}
+
 /**
  * Shared: load entries + scores for any event.
- * Each game-specific loader can further shape the returned data.
  */
 export async function loadEntriesWithScores({ db, eventId }) {
-  // Entries with user info
   const entriesRes = await db
     .prepare(
       `
@@ -54,15 +54,14 @@ export async function loadEntriesWithScores({ db, eventId }) {
     .bind(eventId)
     .all();
 
-  const entries = (entriesRes?.results ?? []).map((row) => ({
-    user_id: row.user_id,
-    display_name: row.display_name,
-    submitted_at: row.submitted_at,
-    updated_at: row.updated_at,
-    payload: safeJsonParse(row.payload_json) ?? {}
+  const entries = (entriesRes?.results || []).map((r) => ({
+    user_id: r.user_id,
+    display_name: r.display_name,
+    submitted_at: r.submitted_at,
+    updated_at: r.updated_at,
+    payload: safeJsonParse(r.payload_json) || {}
   }));
 
-  // Scores (if computed)
   const scoresRes = await db
     .prepare(
       `
@@ -75,7 +74,7 @@ export async function loadEntriesWithScores({ db, eventId }) {
     .all();
 
   const scoreByUserId = new Map(
-    (scoresRes?.results ?? []).map((r) => {
+    (scoresRes?.results || []).map((r) => {
       let breakdown = null;
       try {
         breakdown = r.breakdown_json ? JSON.parse(r.breakdown_json) : null;
@@ -86,58 +85,9 @@ export async function loadEntriesWithScores({ db, eventId }) {
     })
   );
 
-  const entriesWithScores = entries.map((e) => ({
-    ...e,
-    score: scoreByUserId.get(e.user_id) ?? null
-  }));
-
-  return entriesWithScores;
+  return entries.map((e) => ({ ...e, score: scoreByUserId.get(e.user_id) ?? null }));
 }
 
-export async function loadAdminResults({ db, event, fetchImpl }) {
-  const handler = HANDLERS[event.type];
-  if (!handler?.load) {
-    // still return something usable
-    const results = await getResultsForEvent(db, event.id);
-    const entries = await loadEntriesWithScores({ db, eventId: event.id });
-    return { event, results, entries };
-  }
-
-  return handler.load({
-    db,
-    event,
-    fetchImpl
-  });
-}
-
-export async function actionPublish({ db, event, request, fetchImpl }) {
-  const handler = HANDLERS[event.type];
-  if (!handler?.publish) return fail(400, { ok: false, error: 'Unsupported event type for publishing.' });
-
-  const form = await request.formData();
-  const out = await handler.publish({ db, event, form, fetchImpl });
-
-  if (!out?.ok) return out;
-
-  // Recompute on successful publish (common across games)
-  const recompute = await recomputeScoresForEvent(db, event);
-  if (!recompute.ok) return fail(400, { ok: false, error: recompute.error });
-
-  return { ok: true, count: recompute.count };
-}
-
-export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
-  const handler = HANDLERS[event.type];
-  if (!handler?.syncSeeds) return fail(400, { ok: false, error: 'Seed sync not supported for this event.' });
-
-  const form = await request.formData();
-  return handler.syncSeeds({ db, event, form, fetchImpl });
-}
-
-/**
- * Shared helper to merge results payload instead of clobbering.
- * Uses getResultsForEvent + upsertResultsForEvent you already have.
- */
 export async function mergeResultsPayload({ db, eventId, patch, now, setPublishedAt = false, slug = null }) {
   const current = await getResultsForEvent(db, eventId);
   const base = current?.payload && typeof current.payload === 'object' ? current.payload : {};
@@ -154,3 +104,43 @@ export async function mergeResultsPayload({ db, eventId, patch, now, setPublishe
   return next;
 }
 
+export async function loadAdminResults({ db, event, fetchImpl }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.load) {
+    const results = await getResultsForEvent(db, event.id);
+    const entries = await loadEntriesWithScores({ db, eventId: event.id });
+    return { event, results, entries };
+  }
+
+  return handler.load({ db, event, fetchImpl });
+}
+
+export async function actionPublish({ db, event, request, fetchImpl }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.publish) return fail(400, { ok: false, error: 'Unsupported event type for publishing.' });
+
+  const form = await request.formData();
+  const out = await handler.publish({ db, event, form, fetchImpl });
+  if (!out?.ok) return out;
+
+  const recompute = await recomputeScoresForEvent(db, event);
+  if (!recompute.ok) return fail(400, { ok: false, error: recompute.error });
+
+  return { ok: true, count: recompute.count };
+}
+
+export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.syncSeeds) return fail(400, { ok: false, error: 'Seed sync not supported for this event.' });
+
+  const form = await request.formData();
+  return handler.syncSeeds({ db, event, form, fetchImpl });
+}
+export async function actionAdvanceRound({ db, event, request, fetchImpl }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.advanceRound) return fail(400, { ok: false, error: 'Advance not supported for this event type.' });
+
+  const form = await request.formData();
+  // form unused but keeps signature consistent
+  return handler.advanceRound({ db, event, form, fetchImpl });
+}

@@ -5,6 +5,8 @@ import { loadEntriesWithScores, mergeResultsPayload } from '$lib/games/adminResu
 import { getOptions } from './options.js';
 import { WORLD_CUP_ROUNDS } from '$lib/scoring/worldCup.js';
 // adding bullshit to make the commit go thru
+//more bs trying again
+
 
 function asStr(v) {
   return v == null ? '' : String(v).trim();

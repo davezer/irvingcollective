@@ -4,6 +4,7 @@ import { getResultsForEvent } from '$lib/server/db/results.js';
 import { loadEntriesWithScores, mergeResultsPayload } from '$lib/games/adminResults.server.js';
 import { getOptions } from './options.js';
 import { WORLD_CUP_ROUNDS } from '$lib/scoring/worldCup.js';
+// adding bullshit to make the commit go thru
 
 function asStr(v) {
   return v == null ? '' : String(v).trim();

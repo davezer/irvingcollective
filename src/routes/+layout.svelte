@@ -5,10 +5,10 @@
 
 <svelte:head>
   <!-- 16x16 tab icon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/Favicon 32 x32 .png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/Favicon 32 x 32.png" />
 
   <!-- (optional but recommended) also provide 32x32 so browsers choose best -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/Favicon 32 x32.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/Favicon 32 x 32.png" />
 </svelte:head>
 
 {@render children()}

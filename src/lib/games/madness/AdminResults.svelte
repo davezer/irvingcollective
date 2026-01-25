@@ -13,6 +13,7 @@
   let publishMsg = '';
 
   $: pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
+  $: eventPublishedAt = event?.results_published_at || null;
 
   // If results payload already includes synced seeds, we can prefill seed inputs (optional)
   const payload = results?.payload || null;
@@ -96,7 +97,7 @@
   <div class="card">
     <div class="section-head">
       <h2 class="h2">Publish Results + Recompute</h2>
-      <UnpublishButton published={!!event.results_published_at} />
+      
       <span class="pill">{pickedTeams?.length || 0} picked teams</span>
     </div>
 
@@ -194,7 +195,16 @@
       </form>
     {/if}
   </div>
+  <div style="margin-top: 18px;">
+  <div class="section-head">
+    <h3 class="h3">Danger Zone</h3>
+    <div class="muted">Unpublishing removes all computed scores for this event.</div>
+  </div>
 
+  <div class="actions" style="margin-top: 10px;">
+    <UnpublishButton publishedAt={eventPublishedAt} />
+  </div>
+</div>
   <div class="spacer"></div>
 
   <div class="card">

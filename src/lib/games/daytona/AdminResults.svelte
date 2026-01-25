@@ -12,7 +12,11 @@
   $: optionsMode = data?.optionsMode || '';
   $: optionsNote = data?.optionsNote || '';
 
+  // NOTE:
+  // - results?.published_at is your per-game results record timestamp (nice for display)
+  // - event?.results_published_at is the global "published" flag on events (used for unpublish)
   $: publishedAt = results?.published_at || null;
+
   $: officialIds =
     Array.isArray(results?.payload?.officialTop10Ids)
       ? results.payload.officialTop10Ids.map((x) => String(x))
@@ -46,6 +50,7 @@
 
   // Fast id → option lookup
   $: driverMap = new Map((driverOptions || []).map((d) => [String(d.id), d]));
+  $: eventPublishedAt = event?.results_published_at || null;
 
   function labelFor(id) {
     const o = driverMap.get(String(id));
@@ -158,7 +163,6 @@
     const chaosFinishPos = b?.chaos?.finishPos ?? null;
     const total = entry?.score?.score_total ?? exact + bonus + chaos;
 
-    // If your scorer doesn't provide inTop10, we derive it from finishPos below.
     return {
       total,
       breakdown: { exact, bonus, chaos, podiumExacta, chaosPenalty, chaosFinishPos }
@@ -176,7 +180,7 @@
     const chaosFinishPos = show?.breakdown?.chaosFinishPos ?? null;
 
     const chaosHit =
-      (Number.isFinite(chaosFinishPos) && chaosFinishPos >= 1 && chaosFinishPos <= 10);
+      Number.isFinite(chaosFinishPos) && chaosFinishPos >= 1 && chaosFinishPos <= 10;
 
     return {
       ...e,
@@ -200,11 +204,17 @@
       </div>
     {/if}
 
-    {#if publishedAt && officialIds.length === 10}
-      <div class="muted" style="margin-top:8px;">
-        Current published: <strong>{publishedAt}</strong>
-      </div>
-    {/if}
+  {#if eventPublishedAt}
+    <div class="muted" style="margin-top:8px;">
+      Current published: <strong>{eventPublishedAt}</strong>
+    </div>
+  {:else if publishedAt && officialIds.length === 10}
+    <div class="muted" style="margin-top:8px;">
+      Last published snapshot: <strong>{publishedAt}</strong>
+    </div>
+  {/if}
+
+
 
     <form
       method="POST"
@@ -257,7 +267,6 @@
         <button class="btn btn--vip" type="submit" disabled={saving || !isComplete || !isUnique}>
           {saving ? 'Publishing…' : 'Publish results + recompute'}
         </button>
-        
 
         <div class="muted">
           {#if !isUnique}
@@ -272,7 +281,20 @@
         </div>
       </div>
     </form>
-    <UnpublishButton published={!!event.results_published_at} />
+
+    <!-- Danger Zone: keep destructive actions explicit + separate -->
+    <div style="margin-top: 18px;">
+      <div class="section-head">
+        <h3 class="h3">Danger Zone</h3>
+        <div class="muted">Unpublishing removes all computed scores for this event.</div>
+      </div>
+
+      <div class="actions" style="margin-top: 10px;">
+        <!-- ✅ Correct prop: use event.results_published_at, not a boolean -->
+        <UnpublishButton publishedAt={eventPublishedAt} />
+
+      </div>
+    </div>
   </div>
 
   <div class="spacer"></div>

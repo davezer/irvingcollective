@@ -1,9 +1,10 @@
 // src/lib/games/worldcup/adminResults.server.js
 import { fail } from '@sveltejs/kit';
-import { getResultsForEvent } from '$lib/server/db/results.js';
+import { getResultsForEvent, upsertResultsForEvent } from '$lib/server/db/results.js';
 import { loadEntriesWithScores, mergeResultsPayload } from '$lib/games/adminResults.server.js';
 import { getOptions } from './options.js';
 import { WORLD_CUP_ROUNDS } from '$lib/scoring/worldCup.js';
+
 // adding bullshit to make the commit go thru
 //more bs trying again
 
@@ -157,3 +158,52 @@ export async function advanceRound({ db, event }) {
   return { ok: true };
 }
 
+export async function resetTournament({ db, event }) {
+  if (!event?.id) return fail(400, { ok: false, error: 'Invalid event' });
+
+  const eventId = event.id;
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // 1) Clear published flag on the event
+  await db
+    .prepare(`UPDATE events SET results_published_at = NULL WHERE id = ?`)
+    .bind(eventId)
+    .run();
+
+  // 2) Delete computed scores (keep entries)
+  await db
+    .prepare(`DELETE FROM entry_scores WHERE event_id = ?`)
+    .bind(eventId)
+    .run();
+
+  // 3) Reset the world cup results payload back to group stage
+  const current = await getResultsForEvent(db, eventId);
+  const base = current?.payload && typeof current.payload === 'object' ? current.payload : {};
+
+  const next = {
+    ...base,
+    // These keys cover both naming styles we've seen floating around
+    currentRound: 'group',
+    rounds: {},
+    roundsPayload: {},
+    // If you store "suggestedNextRound", reset it too
+    suggestedNextRound: 'group'
+  };
+
+  // This updates/creates the results row with the reset payload.
+  // setPublishedAt=false so results.published_at isn't re-set.
+  await upsertResultsForEvent(db, eventId, next, {
+    nowSec,
+    setPublishedAt: false,
+    slug: event.slug
+  });
+
+  // Optional: if your results table has published_at and you want it cleared explicitly
+  try {
+    await db.prepare(`UPDATE results SET published_at = NULL WHERE event_id = ?`).bind(eventId).run();
+  } catch {
+    // ignore if column/table differs
+  }
+
+  return { ok: true };
+}

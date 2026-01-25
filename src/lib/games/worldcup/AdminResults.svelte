@@ -13,6 +13,7 @@
   $: currentRound = data?.currentRound || 'group';
   $: roundsPayload = data?.roundsPayload || {};
   $: suggestedNextRound = data?.suggestedNextRound || currentRound;
+  $: eventPublishedAt = event?.results_published_at || null;
 
   // Admin form state
   let round = currentRound;
@@ -59,7 +60,7 @@
         <div class="big">{WORLD_CUP_ROUND_LABELS[currentRound] || currentRound}</div>
       </div>
 
-      <form method="POST" action="?/publish" use:enhance class="publish">
+      <form id="publishForm" method="POST" action="?/publish" use:enhance class="publish">
         <div class="grid-one">
           <div class="field">
             <label>Publish Round</label>
@@ -70,7 +71,6 @@
             </select>
           </div>
         </div>
-        <UnpublishButton published={!!event.results_published_at} />
         <div class="divider"></div>
         
 
@@ -96,14 +96,33 @@
         </div>
 
         
-      </form>
-      <div class="actions">
-  <button class="btn btn--vip">Publish + Recompute</button>
+     </form>
+
+<div class="actions">
+  <!-- ✅ Submit the publish form from outside using form= -->
+  <button class="btn btn--vip" type="submit" form="publishForm">
+    Publish + Recompute
+  </button>
 
   <form method="POST" action="?/advanceRound" use:enhance>
-    <button class="btn btn--ghost">Advance to Next Round</button>
-    </form>
-  </div>
+    <button class="btn btn--ghost" type="submit">Advance to Next Round</button>
+  </form>
+
+  <!-- ✅ Reset tournament back to Group Stage -->
+  <form
+    method="POST"
+    action="?/resetTournament"
+    use:enhance
+    on:submit|preventDefault={(e) => {
+      const ok = confirm(
+        `RESET TO GROUP STAGE?\n\nThis will:\n• Set the current round back to Group\n• Clear all advanced-team selections for every round\n• Delete all computed entry_scores for this event\n• Clear published state\n\nEntries are NOT deleted.\n\nThis cannot be undone.`
+      );
+      if (ok) e.currentTarget.submit();
+    }}
+  >
+    <button class="btn btn--danger" type="submit">Reset Tournament</button>
+  </form>
+</div>
 
       <div class="divider"></div>
 
@@ -112,6 +131,16 @@
       </div>
     </div>
   </div>
+  <div style="margin-top: 18px;">
+  <div class="section-head">
+    <h3 class="h3">Danger Zone</h3>
+    <div class="muted">Unpublishing removes all computed scores for this event.</div>
+  </div>
+
+  <div class="actions" style="margin-top: 10px;">
+    <UnpublishButton publishedAt={eventPublishedAt} />
+  </div>
+</div>
 
   <div class="card">
     <div class="section-head">

@@ -15,6 +15,7 @@
 
   $: currentStage = results?.payload?.stage || 'pre_r1';
   $: winnerId = results?.payload?.winnerId ? String(results.payload.winnerId) : '';
+  $: eventPublishedAt = event?.results_published_at || null;
 
 const STAGES = MASTERS_STAGE_KEYS.map((id) => ({
   id,
@@ -90,7 +91,7 @@ const STAGES = MASTERS_STAGE_KEYS.map((id) => ({
               {/each}
             </select>
           </div>
-          <UnpublishButton published={!!event.results_published_at} />
+          
           <input type="hidden" name="winnerSnapshot" value={winnerId ? snapFor(winnerId) : ''} />
 
           <div class="actions">
@@ -106,6 +107,16 @@ const STAGES = MASTERS_STAGE_KEYS.map((id) => ({
       </div>
     </div>
   </div>
+  <div style="margin-top: 18px;">
+  <div class="section-head">
+    <h3 class="h3">Danger Zone</h3>
+    <div class="muted">Unpublishing removes all computed scores for this event.</div>
+  </div>
+
+  <div class="actions" style="margin-top: 10px;">
+    <UnpublishButton publishedAt={eventPublishedAt} />
+  </div>
+</div>
 
   <div class="spacer"></div>
 

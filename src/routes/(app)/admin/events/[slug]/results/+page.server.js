@@ -6,7 +6,8 @@ import {
   actionPublish,
   actionSyncSeeds,
   actionResetEntries,
-  actionUnpublish
+  actionUnpublish,
+  actionResetTournament
 } from '$lib/games/adminResults.server.js';
 
 export const load = async ({ locals, platform, params, fetch }) => {
@@ -58,5 +59,14 @@ export const actions = {
     if (!event) return fail(404, { ok: false, error: 'Event not found' });
 
     return actionResetEntries({ db, event, request });
-  }
+  },
+  resetTournament: async ({ locals, platform, params }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionResetTournament({ db, event });
+  },
 };

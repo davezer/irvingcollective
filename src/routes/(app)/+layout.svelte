@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   export let data; // contains { user } from (app)/+layout.server.js
 
-   let adminDD;
+  let adminDD;
 
   function closeAdminDD() {
     adminDD?.removeAttribute('open');
@@ -39,80 +39,83 @@
 
   $: path = $page.url.pathname;
   const isActive = (href) => path === href || (href !== '/' && path.startsWith(href + '/'));
+
+  let mobileOpen = false;
+
+  // close menu when route changes
+  $: $page.url.pathname, (mobileOpen = false);
+
+  const primaryLinks = [
+    { href: '/games', label: 'Games' },
+    { href: '/leaderboard', label: 'Leaderboard' },
+    { href: '/schedule', label: 'Schedule' }
+  ];
 </script>
 
 <div class="shell">
   <header class="topbar">
     <div class="topbar-inner">
+      <!-- Brand -->
       <a class="brand" href="/">
         <div class="brand-title">Irving Collective</div>
         <div class="brand-tag">Offseason Lounge</div>
       </a>
 
-      <nav class="nav">
-        <div class="nav-main">
-          <a href="/games" class:active={isActive('/games')}>Games</a>
-          <a href="/leaderboard" class:active={isActive('/leaderboard')}>Leaderboard</a>
-          <a href="/schedule" class:active={isActive('/schedule')}>Schedule</a>
-          <a href="/irvingcoin" class:active={isActive('/irvingcoin')}>IrvingCoin</a>
-        </div>
-
-       {#if data?.user?.role === 'admin'}
-        <details class="nav-dd" bind:this={adminDD}>
-          <summary
-            class="nav-dd__summary"
-            aria-label="Admin menu"
-            on:click|preventDefault={() => toggleAdminDD()}
-          >
-            Admin <span class="nav-dd__chev" aria-hidden="true">▾</span>
-          </summary>
-
-          <div class="nav-dd__menu" role="menu">
-            <a
-              role="menuitem"
-              href="/admin/events"
-              class:active={isActive('/admin/events')}
-              on:click={closeAdminDD}
-            >
-              Events
-            </a>
-
-            <a
-              role="menuitem"
-              href="/admin/users"
-              class:active={isActive('/admin/users')}
-              on:click={closeAdminDD}
-            >
-              Users
-            </a>
-
-            <a
-              role="menuitem"
-              href="/admin/invites"
-              class:active={isActive('/admin/invites')}
-              on:click={closeAdminDD}
-            >
-              Invites
-            </a>
-          </div>
-        </details>
-      {/if}
+      <!-- Desktop nav -->
+      <nav class="primary-nav desktop-only" aria-label="Primary">
+        {#each primaryLinks as l}
+          <a class={"navlink " + (isActive(l.href) ? 'active' : '')} href={l.href}>
+            {l.label}
+          </a>
+        {/each}
       </nav>
 
-
-      <div class="user">
-        <div class="user-chip" title="Signed in">
-          <span class="user-dot" aria-hidden="true"></span>
-          <span class="user-name">{data?.user?.displayName}</span>
-          {#if data?.user?.role === 'admin'}
-            <span class="user-role">Admin</span>
-          {/if}
+      <!-- Mobile: control row (hamburger left, user right) -->
+      <div class="control-row">
+        <div class="mobile-only">
+          <button
+            class={"hamburger " + (mobileOpen ? 'is-open' : '')}
+            type="button"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav"
+            on:click={() => (mobileOpen = !mobileOpen)}
+          >
+            <span class="hamburger__glyph" aria-hidden="true">
+              <span class="hamburger__bar"></span>
+              <span class="hamburger__bar"></span>
+              <span class="hamburger__bar"></span>
+            </span>
+          </button>
         </div>
 
-        <form method="POST" action="/api/auth/logout">
-          <button class="btn btn--ghost" type="submit">Logout</button>
-        </form>
+        <div class="user">
+          <div class="user-chip" title="Signed in">
+            <span class="user-dot" aria-hidden="true"></span>
+            <span class="user-name">{data?.user?.displayName}</span>
+            {#if data?.user?.role === 'admin'}
+              <span class="user-role">Admin</span>
+            {/if}
+          </div>
+
+          <form method="POST" action="/api/auth/logout">
+            <button class="btn btn--ghost" type="submit">Logout</button>
+          </form>
+        </div>
       </div>
+
+      <!-- Mobile drawer: full-width row under the top bar -->
+      {#if mobileOpen}
+        <div id="mobile-nav" class="mobile-drawer" role="dialog" aria-label="Menu">
+          <div class="mobile-drawer__inner">
+            {#each primaryLinks as l}
+              <a class={"mobile-link " + (isActive(l.href) ? 'active' : '')} href={l.href}>
+                {l.label}
+              </a>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </header>
 
@@ -125,7 +128,7 @@
   /* Shell */
   .shell { min-height: 100vh; }
 
-  /* Topbar (works with global app.css if present; these are safe overrides) */
+  /* Topbar */
   .topbar {
     position: sticky;
     top: 0;
@@ -152,8 +155,8 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 6px 8px;
-    border-radius: 14px;
+    padding: 6px 10px;
+    border-radius: 16px;
     border: 1px solid transparent;
   }
 
@@ -176,173 +179,35 @@
     opacity: 0.6;
   }
 
-  /* Nav */
-  .nav {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
+  /* Responsive helpers */
+  .desktop-only { display: flex; }
+  .mobile-only { display: none; }
+  @media (max-width: 720px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: block; }
+  }
 
-  .nav a {
+  /* Desktop nav */
+  .primary-nav { gap: 16px; align-items: center; justify-content: center; }
+  .navlink {
+    font-weight: 800;
+    opacity: 0.8;
     text-decoration: none;
-    color: rgba(255,255,255,0.75);
-    font-weight: 650;
-    letter-spacing: 0.02em;
     padding: 8px 10px;
-    border-radius: 999px;
+    border-radius: 12px;
     border: 1px solid transparent;
-    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
   }
+  .navlink:hover { opacity: 1; border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); }
+  .navlink.active { opacity: 1; border-color: rgba(212,175,55,0.22); background: rgba(212,175,55,0.08); }
 
-  .nav a:hover {
-    color: rgba(255,255,255,0.92);
-    border-color: rgba(255,255,255,0.14);
-    background: rgba(255,255,255,0.03);
+  /* Mobile control row */
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
   }
-
-  .nav a.active {
-    color: #f5d58a;
-    border-color: rgba(214,177,94,0.35);
-    background: rgba(214,177,94,0.10);
-  }
-/* keep main links grouped */
-.nav-main {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-/* --- Admin dropdown --- */
-.nav-dd {
-  position: relative;
-  display: inline-block;
-}
-
-.nav-dd > summary {
-  list-style: none;
-}
-.nav-dd > summary::-webkit-details-marker {
-  display: none;
-}
-
-.nav-dd__summary {
-  cursor: pointer;
-  user-select: none;
-
-  padding: 10px 12px;
-  border-radius: 999px;
-  line-height: 1;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
-
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.10s ease;
-}
-
-.nav-dd__summary:hover {
-  border-color: rgba(214, 177, 94, 0.28);
-  background: rgba(214, 177, 94, 0.06);
-  transform: translateY(-1px);
-}
-
-.nav-dd[open] .nav-dd__summary {
-  border-color: rgba(214, 177, 94, 0.40);
-  background: rgba(214, 177, 94, 0.10);
-}
-
-.nav-dd__chev {
-  opacity: 0.8;
-  font-size: 12px;
-  transform: translateY(1px);
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.nav-dd[open] .nav-dd__chev {
-  transform: translateY(1px) rotate(180deg);
-  opacity: 0.95;
-}
-
-.nav-dd__menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-
-  min-width: 190px;
-  padding: 10px;
-
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(12px);
-
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-
-  z-index: 60;
-
-  display: grid;
-  gap: 8px;
-
-  /* subtle entrance */
-  transform-origin: top right;
-  animation: ddIn 120ms ease-out;
-}
-
-@keyframes ddIn {
-  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.nav-dd__menu a {
-  text-decoration: none;
-  color: rgba(255, 255, 255, 0.92);
-
-  padding: 10px 10px;
-  border-radius: 12px;
-
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.10s ease;
-}
-
-.nav-dd__menu a:hover {
-  border-color: rgba(214, 177, 94, 0.28);
-  background: rgba(214, 177, 94, 0.06);
-  transform: translateY(-1px);
-}
-
-.nav-dd__menu a.active {
-  border-color: rgba(214, 177, 94, 0.48);
-  background: rgba(214, 177, 94, 0.12);
-}
-
-@media (max-width: 860px) {
-  .nav-dd__menu {
-    right: auto;
-    left: 0;
-    transform-origin: top left;
-  }
-}
-
-/* Mobile: don't let it overflow weirdly */
-@media (max-width: 860px) {
-  .nav-dd__menu {
-    right: auto;
-    left: 0;
-  }
-}
-
-
 
   /* User area */
   .user {
@@ -390,7 +255,7 @@
     opacity: 0.9;
   }
 
-  /* Button styling fallback if global .btn isn't present */
+  /* Button fallback */
   .btn {
     appearance: none;
     border: 1px solid rgba(255,255,255,0.14);
@@ -400,6 +265,7 @@
     border-radius: 12px;
     cursor: pointer;
     font-weight: 650;
+    transition: border-color 0.14s ease, background 0.14s ease, transform 0.12s ease;
   }
 
   .btn:hover {
@@ -408,29 +274,161 @@
     color: rgba(255,255,255,0.95);
   }
 
-  .btn--ghost {
-    background: transparent;
+  .btn--ghost { background: transparent; }
+
+  /* ✅ Sleek hamburger */
+  .hamburger{
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background:
+      radial-gradient(120% 120% at 20% 20%, rgba(255,255,255,0.06), transparent 55%),
+      rgba(0,0,0,0.22);
+    display:grid;
+    place-items:center;
+    padding: 0;
+    cursor:pointer;
+    transition: border-color 160ms ease, background 160ms ease, transform 140ms ease, box-shadow 160ms ease;
+    box-shadow:
+      0 18px 45px rgba(0,0,0,0.35),
+      inset 0 0 0 1px rgba(255,255,255,0.03);
   }
 
-  /* Container fallback if global .container isn't present */
+  .hamburger:hover{
+    border-color: rgba(212,175,55,0.28);
+    background:
+      radial-gradient(120% 120% at 20% 20%, rgba(212,175,55,0.10), transparent 55%),
+      rgba(0,0,0,0.22);
+    box-shadow:
+      0 20px 55px rgba(0,0,0,0.42),
+      inset 0 0 0 1px rgba(212,175,55,0.07);
+  }
+
+  .hamburger:active{
+    transform: translateY(1px);
+  }
+
+  .hamburger:focus-visible{
+    outline: none;
+    box-shadow:
+      0 18px 50px rgba(0,0,0,0.40),
+      0 0 0 3px rgba(212,175,55,0.18),
+      inset 0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  .hamburger__glyph{
+    width: 18px;
+    display:grid;
+    gap: 4px;
+  }
+
+  .hamburger__bar{
+    width: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.86);
+    display:block;
+    transform-origin: center;
+    transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+  }
+
+  .hamburger.is-open .hamburger__bar:nth-child(1){
+    transform: translateY(6px) rotate(45deg);
+    background: rgba(212,175,55,0.92);
+  }
+  .hamburger.is-open .hamburger__bar:nth-child(2){
+    opacity: 0;
+  }
+  .hamburger.is-open .hamburger__bar:nth-child(3){
+    transform: translateY(-6px) rotate(-45deg);
+    background: rgba(212,175,55,0.92);
+  }
+
+  /* Mobile drawer */
+  .mobile-drawer {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+
+  .mobile-drawer__inner {
+    display: grid;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .mobile-link {
+    padding: 12px 12px;
+    border-radius: 14px;
+    text-decoration: none;
+    font-weight: 900;
+    opacity: 0.88;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.16);
+    transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease, transform 0.12s ease;
+  }
+
+  .mobile-link:hover {
+    opacity: 1;
+    border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    transform: translateY(-1px);
+  }
+
+  .mobile-link.active {
+    border-color: rgba(212,175,55,0.22);
+    background: rgba(212,175,55,0.08);
+    opacity: 1;
+  }
+
+  /* Container fallback */
   .container {
     max-width: 1100px;
     margin: 0 auto;
     padding: 22px 18px 42px;
   }
 
+  /* Mobile layout tweaks */
   @media (max-width: 860px) {
     .topbar-inner {
       grid-template-columns: 1fr;
-      align-items: start;
+      grid-auto-rows: auto;
+      align-items: stretch;
     }
-    .nav {
-      justify-content: flex-start;
+
+    /* Brand gets its own full-width row */
+    .brand {
+      justify-self: start;
+      width: fit-content;
     }
+
+    /* Control row becomes full-width below brand */
+    .control-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between; /* hamburger left, user right */
+      gap: 12px;
+    }
+
     .user {
-      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .user-chip {
+      padding: 7px 10px;
+    }
+
+    .btn {
+      padding: 9px 10px;
     }
   }
 
-
+  @media (max-width: 420px) {
+    .user-name { max-width: 110px; }
+  }
 </style>

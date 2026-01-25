@@ -15,6 +15,7 @@
   $: payout = results?.payload?.payout != null ? String(results.payload.payout) : '';
 
   $: horseMap = new Map(horseOptions.map((h) => [`${h.id}`, h]));
+  $: eventPublishedAt = event?.results_published_at || null;
 
   function snapFor(id) {
     const h = horseMap.get(`${id}`);
@@ -87,6 +88,16 @@
       </form>
     </div>
   </div>
+  <div style="margin-top: 18px;">
+  <div class="section-head">
+    <h3 class="h3">Danger Zone</h3>
+    <div class="muted">Unpublishing removes all computed scores for this event.</div>
+  </div>
+
+  <div class="actions" style="margin-top: 10px;">
+    <UnpublishButton publishedAt={eventPublishedAt} />
+  </div>
+</div>
 
   <div class="spacer"></div>
 

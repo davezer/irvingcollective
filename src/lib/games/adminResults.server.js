@@ -126,8 +126,22 @@ export async function actionPublish({ db, event, request, fetchImpl }) {
   const recompute = await recomputeScoresForEvent(db, event);
   if (!recompute.ok) return fail(400, { ok: false, error: recompute.error });
 
+  // ✅ Mark event as published (unix seconds)
+  await db
+    .prepare(
+      `
+      UPDATE events
+      SET results_published_at = unixepoch()
+      WHERE id = ?
+      `
+    )
+    .bind(event.id)
+    .run();
+
   return { ok: true, count: recompute.count };
 }
+
+
 
 export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
   const handler = HANDLERS[event.type];
@@ -164,12 +178,12 @@ export async function actionResetEntries({ db, event }) {
 }
 
 export async function actionUnpublish({ db, event }) {
-  if (!event?.id) {
-    return { ok: false, error: 'Invalid event' };
-  }
+  if (!event?.id) return fail(400, { ok: false, error: 'Invalid event' });
 
-  // 1. Mark results as unpublished
-  await db
+  const eventId = event.id;
+
+  // 1) Clear global published flag
+  const upd = await db
     .prepare(
       `
       UPDATE events
@@ -177,22 +191,44 @@ export async function actionUnpublish({ db, event }) {
       WHERE id = ?
       `
     )
-    .bind(event.id)
+    .bind(eventId)
     .run();
 
-  // 2. Remove all computed scores for this event
+  // If nothing updated, something is off (bad id, etc.)
+  if (!upd?.success) {
+    return fail(500, { ok: false, error: 'Failed to update event publish state.' });
+  }
+
+  // 2) Remove computed scores
   await db
-    .prepare(
-      `
-      DELETE FROM entry_scores
-      WHERE event_id = ?
-      `
-    )
-    .bind(event.id)
+    .prepare(`DELETE FROM entry_scores WHERE event_id = ?`)
+    .bind(eventId)
     .run();
+
+  // 3) OPTIONAL: Clear the per-game results published timestamp too,
+  // so the Daytona page doesn't keep saying "Current published: <old>".
+  // This depends on your results schema supporting published_at updates via your upsert.
+  // If your results table doesn't have published_at, delete this block.
+  try {
+    await db
+      .prepare(`UPDATE results SET published_at = NULL WHERE event_id = ?`)
+      .bind(eventId)
+      .run();
+  } catch {
+    // ignore if results table doesn't have published_at or you don't want to clear it
+  }
 
   return { ok: true };
 }
+
+export async function actionResetTournament({ db, event }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.resetTournament)
+    return fail(400, { ok: false, error: 'Reset tournament not supported for this event type.' });
+
+  return handler.resetTournament({ db, event });
+}
+
 
 
 

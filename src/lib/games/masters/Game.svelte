@@ -1,5 +1,8 @@
 <script>
   import { enhance } from '$app/forms';
+  import GameRules from '$lib/components/GameRules.svelte';
+  import { MASTERS_RULES } from './rules.js';
+   import SectionHead from '$lib/ui/SectionHeader.svelte';
 
   export let event;
   export let locked = false;
@@ -55,6 +58,7 @@
     <div>
       <div class="kicker">Your Pick</div>
       <h2 class="h2" style="margin:0;">The Masters</h2>
+      <div class="sectionHead"><SectionHead rules={MASTERS_RULES}/></div>
     </div>
 
     {#if locked}
@@ -136,4 +140,9 @@
   .row { display: grid; gap: 6px; margin-top: 12px; }
   .actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
   .kicker { letter-spacing: 0.12em; font-size: 0.72rem; opacity: 0.85; }
+  .sectionHead {
+  flex-wrap: wrap;
+  justify-self: left;
+  padding-bottom: 2px;
+}
 </style>

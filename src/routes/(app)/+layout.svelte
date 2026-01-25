@@ -16,16 +16,23 @@
     else adminDD.toggleAttribute('open');
   }
 
+  let mobileOpen = false;
+  const closeMobile = () => (mobileOpen = false);
+
   onMount(() => {
     function onDocPointerDown(e) {
-      if (!adminDD?.hasAttribute('open')) return;
-      const t = e.target;
-      if (t instanceof Node && adminDD.contains(t)) return; // click inside dropdown
-      closeAdminDD(); // click outside
+      // close admin dropdown when clicking outside
+      if (adminDD?.hasAttribute('open')) {
+        const t = e.target;
+        if (!(t instanceof Node && adminDD.contains(t))) closeAdminDD();
+      }
     }
 
     function onDocKeyDown(e) {
-      if (e.key === 'Escape') closeAdminDD();
+      if (e.key === 'Escape') {
+        closeAdminDD();
+        closeMobile();
+      }
     }
 
     document.addEventListener('pointerdown', onDocPointerDown, true);
@@ -39,8 +46,6 @@
 
   $: path = $page.url.pathname;
   const isActive = (href) => path === href || (href !== '/' && path.startsWith(href + '/'));
-
-  let mobileOpen = false;
 
   // close menu when route changes
   $: $page.url.pathname, (mobileOpen = false);
@@ -70,7 +75,7 @@
         {/each}
       </nav>
 
-      <!-- Mobile: control row (hamburger left, user right) -->
+      <!-- Mobile: hamburger left, user right -->
       <div class="control-row">
         <div class="mobile-only">
           <button
@@ -81,7 +86,7 @@
             aria-controls="mobile-nav"
             on:click={() => (mobileOpen = !mobileOpen)}
           >
-            <span class="hamburger__glyph" aria-hidden="true">
+            <span class="hamburger__bars" aria-hidden="true">
               <span class="hamburger__bar"></span>
               <span class="hamburger__bar"></span>
               <span class="hamburger__bar"></span>
@@ -93,8 +98,24 @@
           <div class="user-chip" title="Signed in">
             <span class="user-dot" aria-hidden="true"></span>
             <span class="user-name">{data?.user?.displayName}</span>
+
             {#if data?.user?.role === 'admin'}
-              <span class="user-role">Admin</span>
+              <!-- Admin dropdown lives on the ADMIN pill -->
+              <details class="user-admin" bind:this={adminDD}>
+                <summary
+                  class="user-role user-role--click"
+                  on:click|preventDefault={() => toggleAdminDD()}
+                  aria-label="Admin menu"
+                >
+                  ADMIN <span class="user-role__chev">▾</span>
+                </summary>
+
+                <div class="user-admin__menu" role="menu" aria-label="Admin menu">
+                  <a class={isActive('/admin/events') ? 'active' : ''} href="/admin/events">Events</a>
+                  <a class={isActive('/admin/users') ? 'active' : ''} href="/admin/users">Users</a>
+                  <a class={isActive('/admin/invites') ? 'active' : ''} href="/admin/invites">Invites</a>
+                </div>
+              </details>
             {/if}
           </div>
 
@@ -103,20 +124,26 @@
           </form>
         </div>
       </div>
-
-      <!-- Mobile drawer: full-width row under the top bar -->
-      {#if mobileOpen}
-        <div id="mobile-nav" class="mobile-drawer" role="dialog" aria-label="Menu">
-          <div class="mobile-drawer__inner">
-            {#each primaryLinks as l}
-              <a class={"mobile-link " + (isActive(l.href) ? 'active' : '')} href={l.href}>
-                {l.label}
-              </a>
-            {/each}
-          </div>
-        </div>
-      {/if}
     </div>
+
+    <!-- Mobile drawer lives under the header, centered to your layout width -->
+    {#if mobileOpen}
+      <div class="mobile-backdrop" on:click={closeMobile} aria-hidden="true"></div>
+
+      <nav id="mobile-nav" class="mobile-drawer" aria-label="Menu">
+        <div class="mobile-drawer__inner">
+          {#each primaryLinks as l}
+            <a
+              class={"mobile-link " + (isActive(l.href) ? 'active' : '')}
+              href={l.href}
+              on:click={closeMobile}
+            >
+              {l.label}
+            </a>
+          {/each}
+        </div>
+      </nav>
+    {/if}
   </header>
 
   <main class="container">
@@ -132,10 +159,11 @@
   .topbar {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 50;
     backdrop-filter: blur(10px);
     background: rgba(7, 8, 10, 0.62);
     border-bottom: 1px solid rgba(255,255,255,0.10);
+    overflow: visible; /* important for the absolute drawer */
   }
 
   .topbar-inner {
@@ -158,6 +186,7 @@
     padding: 6px 10px;
     border-radius: 16px;
     border: 1px solid transparent;
+    width: fit-content;
   }
 
   .brand:hover {
@@ -276,112 +305,129 @@
 
   .btn--ghost { background: transparent; }
 
-  /* ✅ Sleek hamburger */
+  /* ✅ Sexy hamburger (3 bars, tight spacing, true X) */
   .hamburger{
     width: 44px;
     height: 44px;
     border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.12);
     background:
-      radial-gradient(120% 120% at 20% 20%, rgba(255,255,255,0.06), transparent 55%),
-      rgba(0,0,0,0.22);
-    display:grid;
-    place-items:center;
-    padding: 0;
-    cursor:pointer;
-    transition: border-color 160ms ease, background 160ms ease, transform 140ms ease, box-shadow 160ms ease;
+      radial-gradient(140% 140% at 20% 20%, rgba(212,175,55,0.10), transparent 55%),
+      rgba(0,0,0,0.18);
+    display: grid;
+    place-items: center;
+    position: relative;
+    z-index: 140; /* always above menu/backdrop */
     box-shadow:
-      0 18px 45px rgba(0,0,0,0.35),
+      0 18px 55px rgba(0,0,0,0.40),
       inset 0 0 0 1px rgba(255,255,255,0.03);
+    transition: transform 120ms ease, border-color 140ms ease, background 140ms ease;
   }
 
   .hamburger:hover{
     border-color: rgba(212,175,55,0.28);
     background:
-      radial-gradient(120% 120% at 20% 20%, rgba(212,175,55,0.10), transparent 55%),
+      radial-gradient(140% 140% at 20% 20%, rgba(212,175,55,0.14), transparent 55%),
       rgba(0,0,0,0.22);
-    box-shadow:
-      0 20px 55px rgba(0,0,0,0.42),
-      inset 0 0 0 1px rgba(212,175,55,0.07);
   }
 
-  .hamburger:active{
-    transform: translateY(1px);
-  }
+  .hamburger:active{ transform: translateY(1px); }
 
   .hamburger:focus-visible{
     outline: none;
     box-shadow:
-      0 18px 50px rgba(0,0,0,0.40),
+      0 18px 55px rgba(0,0,0,0.40),
       0 0 0 3px rgba(212,175,55,0.18),
       inset 0 0 0 1px rgba(255,255,255,0.03);
   }
 
-  .hamburger__glyph{
+  .hamburger__bars{
     width: 18px;
-    display:grid;
-    gap: 4px;
+    display: grid;
+    gap: 4px; /* tighter, sexier */
   }
 
   .hamburger__bar{
-    width: 18px;
     height: 2px;
+    width: 18px;
     border-radius: 999px;
     background: rgba(255,255,255,0.86);
-    display:block;
+    transition: transform 170ms ease, opacity 170ms ease, background 170ms ease;
     transform-origin: center;
-    transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
   }
 
   .hamburger.is-open .hamburger__bar:nth-child(1){
     transform: translateY(6px) rotate(45deg);
-    background: rgba(212,175,55,0.92);
+    background: rgba(212,175,55,0.95);
   }
   .hamburger.is-open .hamburger__bar:nth-child(2){
     opacity: 0;
   }
   .hamburger.is-open .hamburger__bar:nth-child(3){
     transform: translateY(-6px) rotate(-45deg);
-    background: rgba(212,175,55,0.92);
+    background: rgba(212,175,55,0.95);
   }
 
-  /* Mobile drawer */
-  .mobile-drawer {
-    grid-column: 1 / -1;
-    margin-top: 10px;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.10);
-    background: rgba(0,0,0,0.35);
+  /* Mobile backdrop */
+  .mobile-backdrop{
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(0,0,0,0.42);
+    backdrop-filter: blur(2px);
+  }
+
+  /* Mobile drawer: under header, aligned to site width */
+  .mobile-drawer{
+    position: absolute;               /* ✅ relative to sticky header */
+    top: calc(100% + 10px);           /* ✅ always below header, even when it wraps */
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1100px, calc(100vw - 24px));
+    z-index: 120;                     /* below hamburger, above backdrop */
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.68);
+    backdrop-filter: blur(12px);
     overflow: hidden;
+    box-shadow:
+      0 22px 70px rgba(0,0,0,0.55),
+      inset 0 0 0 1px rgba(255,255,255,0.03);
+    animation: menuIn 140ms ease-out;
   }
 
-  .mobile-drawer__inner {
+  @keyframes menuIn{
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+
+  .mobile-drawer__inner{
     display: grid;
     padding: 10px;
-    gap: 8px;
+    gap: 10px;
   }
 
-  .mobile-link {
+  .mobile-link{
     padding: 12px 12px;
     border-radius: 14px;
     text-decoration: none;
     font-weight: 900;
-    opacity: 0.88;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(0,0,0,0.16);
-    transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease, transform 0.12s ease;
+    opacity: 0.92;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.18);
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, opacity 120ms ease;
   }
 
-  .mobile-link:hover {
+  .mobile-link:hover{
     opacity: 1;
-    border-color: rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    border-color: rgba(212,175,55,0.20);
+    background: rgba(212,175,55,0.06);
     transform: translateY(-1px);
   }
 
-  .mobile-link.active {
-    border-color: rgba(212,175,55,0.22);
-    background: rgba(212,175,55,0.08);
+  .mobile-link.active{
+    border-color: rgba(212,175,55,0.28);
+    background: rgba(212,175,55,0.10);
     opacity: 1;
   }
 
@@ -400,35 +446,87 @@
       align-items: stretch;
     }
 
-    /* Brand gets its own full-width row */
-    .brand {
-      justify-self: start;
-      width: fit-content;
-    }
-
-    /* Control row becomes full-width below brand */
     .control-row {
       width: 100%;
-      display: flex;
-      align-items: center;
       justify-content: space-between; /* hamburger left, user right */
-      gap: 12px;
     }
 
-    .user {
-      gap: 8px;
-    }
-
-    .user-chip {
-      padding: 7px 10px;
-    }
-
-    .btn {
-      padding: 9px 10px;
-    }
+    .user-chip { padding: 7px 10px; }
+    .btn { padding: 9px 10px; }
   }
 
   @media (max-width: 420px) {
     .user-name { max-width: 110px; }
+  }
+
+  /* Admin dropdown on the ADMIN pill */
+  .user-admin { position: relative; display: inline-block; }
+  .user-admin > summary { list-style: none; }
+  .user-admin > summary::-webkit-details-marker { display: none; }
+
+  .user-role--click{
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .user-role__chev{
+    font-size: 12px;
+    opacity: 0.85;
+    transform: translateY(1px);
+    transition: transform 140ms ease, opacity 140ms ease;
+  }
+
+  .user-admin[open] .user-role__chev{
+    transform: translateY(1px) rotate(180deg);
+    opacity: 1;
+  }
+
+  .user-admin__menu{
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    min-width: 190px;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 18px 60px rgba(0,0,0,0.45),
+      inset 0 0 0 1px rgba(255,255,255,0.03);
+    z-index: 150; /* above everything */
+    display: grid;
+    gap: 8px;
+    transform-origin: top right;
+    animation: adminIn 120ms ease-out;
+  }
+
+  @keyframes adminIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .user-admin__menu a{
+    text-decoration: none;
+    color: rgba(255,255,255,0.92);
+    padding: 10px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.10s ease;
+  }
+
+  .user-admin__menu a:hover{
+    border-color: rgba(214,177,94,0.28);
+    background: rgba(214,177,94,0.06);
+    transform: translateY(-1px);
+  }
+
+  .user-admin__menu a.active{
+    border-color: rgba(214,177,94,0.48);
+    background: rgba(214,177,94,0.12);
   }
 </style>

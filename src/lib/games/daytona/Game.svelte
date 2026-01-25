@@ -1,6 +1,8 @@
 <script>
   import { enhance } from '$app/forms';
   import PodiumPicker from '$lib/components/PodiumPicker.svelte';
+  import SectionHead from '$lib/ui/SectionHeader.svelte';
+  import { DAYTONA_RULES } from './rules.js';
 
   export let event;
   export let locked = false;
@@ -137,6 +139,7 @@
   $: chaosCarNumber = chaosOption?.carNumber ? String(chaosOption.carNumber) : '';
 </script>
 
+
 {#if locked}
   <div class="card">
     <div class="section-head">
@@ -206,9 +209,11 @@
       <p class="subtle" style="margin-top: 10px;">You didn’t submit an entry for this event.</p>
     {/if}
   </div>
+  
 
 {:else if loading}
   <div class="card">
+    
     <div class="section-head">
       <h2 class="h2">Loading</h2>
       <span class="pill">Please wait</span>
@@ -272,15 +277,17 @@
       <div class="card">
         <div class="section-head">
           <h2 class="h2">Your Daytona Entry</h2>
+          <div class="sectionHead"><SectionHead rules={DAYTONA_RULES}/></div>
           {#if chaosCarId}
-            <span class="pill pill--gold">Chaos set</span>
+            <span class="pill pill--gold">Chaos set </span> 
           {:else}
             <span class="pill">Chaos Required</span>
           {/if}
+          
         </div>
 
         <p class="subtle" style="margin-top: 10px;">
-          Choose your top 10 finishers. Order matters. Add a Chaos Car for extra spice.
+          Choose your top 10 finishers. Order matters. Chaos Car for extra spice.
         </p>
 
         <div class="spacer-sm"></div>
@@ -442,4 +449,10 @@
     font-size: 18px;
     white-space: nowrap;
   }
+
+.sectionHead {
+  flex-wrap: wrap;
+  justify-self: left;
+  padding-bottom: 2px;
+}
 </style>

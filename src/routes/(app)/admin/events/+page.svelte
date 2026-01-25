@@ -41,105 +41,87 @@
     <span class="pill pill--gold">{data?.events?.length ?? 0} events</span>
   </div>
 
-  <div class="card card--glow">
-    <div class="table-wrap">
-      <table class="admin-events-table">
-        <colgroup>
-          <col class="col-event" />
-          <col class="col-locks" />
-          <col class="col-lockstatus" />
-          <col class="col-entries" />
-          <col class="col-results" />
-          <col class="col-actions" />
-        </colgroup>
+  <div class="grid">
+    {#if data?.events?.length}
+      {#each data.events as e (e.id)}
+        <div class="card card--event">
+          <!-- Top row -->
+          <div class="card-top">
+            <div class="event-cell">
+              {#if eventDisplay(e).logo}
+                <img class="logo" src={eventDisplay(e).logo} alt="" loading="lazy" />
+              {/if}
 
-        <thead>
-          <tr>
-            <th>Event</th>
-            <th>Locks</th>
-            <th>Lock</th>
-            <th>Entries</th>
-            <th>Results</th>
-            <th class="right">Manage</th>
-          </tr>
-        </thead>
+              <div class="event-text">
+                <div class="title">{eventDisplay(e).title}</div>
+                {#if eventDisplay(e).subtitle}
+                  <div class="subtitle">{eventDisplay(e).subtitle}</div>
+                {/if}
+                <div class="slug muted">/{e.slug}</div>
+              </div>
+            </div>
 
-        <tbody>
-          {#if data?.events?.length}
-            {#each data.events as e (e.id)}
-              <tr>
-                <!-- Event -->
-                <td class="event-cell">
-                  {#if eventDisplay(e).logo}
-                    <img class="logo" src={eventDisplay(e).logo} alt="" loading="lazy" />
+            <div class="top-right">
+              <span class={resultsStatus(e).cls}>{resultsStatus(e).text}</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Body -->
+          <div class="card-body">
+            <!-- Locks -->
+            <div class="block">
+              <div class="label">Locks</div>
+              <div class="value muted">{fmtUnix(e.lock_at)}</div>
+            </div>
+
+            <!-- Lock controls -->
+            <div class="block">
+              <div class="label">Lock</div>
+
+              <div class="lockui">
+                <div class="lockui-top">
+                  <span class={lockStatus(e).cls}>{lockStatus(e).text}</span>
+                </div>
+
+                <form method="POST" action="?/setLockOverride" class="lock-actions">
+                  <input type="hidden" name="eventId" value={e.id} />
+
+                  {#if Number(e.manual_lock) === 1}
+                    <button class="btn btn--seg" type="submit" name="mode" value="auto">Auto</button>
+                    <button class="btn btn--seg" type="submit" name="mode" value="unlock">Unlock</button>
+                  {:else if Number(e.manual_unlock) === 1}
+                    <button class="btn btn--seg" type="submit" name="mode" value="auto">Auto</button>
+                    <button class="btn btn--seg" type="submit" name="mode" value="lock">Lock</button>
+                  {:else}
+                    <button class="btn btn--seg" type="submit" name="mode" value="lock">Lock</button>
+                    <button class="btn btn--seg" type="submit" name="mode" value="unlock">Unlock</button>
                   {/if}
+                </form>
+              </div>
+            </div>
 
-                  <div class="event-text">
-                    <div class="title">{eventDisplay(e).title}</div>
-                    {#if eventDisplay(e).subtitle}
-                      <div class="subtitle">{eventDisplay(e).subtitle}</div>
-                    {/if}
-                    <div class="slug muted">/{e.slug}</div>
-                  </div>
-                </td>
-
-                <!-- Locks -->
-                <td class="muted nowrap locks-col">
-                  {fmtUnix(e.lock_at)}
-                </td>
-
-                <!-- Lock override -->
-                <td class="lockstatus-col">
-                  <div class="lockui">
-                    <div class="lockui-top">
-                      <span class={lockStatus(e).cls}>{lockStatus(e).text}</span>
-                    </div>
-
-                    <form method="POST" action="?/setLockOverride" class="lock-actions">
-                      <input type="hidden" name="eventId" value={e.id} />
-
-                      {#if Number(e.manual_lock) === 1}
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="auto">Auto</button>
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="unlock">Unlock</button>
-                      {:else if Number(e.manual_unlock) === 1}
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="auto">Auto</button>
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="lock">Lock</button>
-                      {:else}
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="lock">Lock</button>
-                        <button class="btn btn--ghost btn--sm" type="submit" name="mode" value="unlock">Unlock</button>
-                      {/if}
-                    </form>
-                  </div>
-                </td>
-
-                <!-- Entries -->
-                <td class="entries-col">
+            <!-- Entries + Manage -->
+            <div class="block entries-row">
+              <div class="entries-left">
+                <div class="label">Entries</div>
+                <div class="value">
                   <span class="pill pill--muted entries-pill">{e.entriesSubmitted}</span>
-                </td>
+                </div>
+              </div>
 
-                <!-- Results -->
-                <td class="results-col">
-                  <!-- {#const st = resultsStatus(e)}{/const} -->
-                  <!-- Svelte 4 doesn't support @const; do inline instead -->
-                  <span class={resultsStatus(e).cls}>{resultsStatus(e).text}</span>
-                </td>
-
-                <!-- Manage -->
-                <td class="actions-col right">
-                  <a class="btn btn--vip btn--sm" href={`/admin/events/${e.slug}/results`}>Manage</a>
-                </td>
-              </tr>
-            {/each}
-          {:else}
-            <tr>
-              <td colspan="6" class="muted">No events found.</td>
-            </tr>
-          {/if}
-        </tbody>
-      </table>
-    </div>
+              <a class="btn btn--vip btn--sm manage-btn" href={`/admin/events/${e.slug}/results`}>Manage</a>
+            </div>
+          </div>
+        </div>
+      {/each}
+    {:else}
+      <div class="muted">No events found.</div>
+    {/if}
   </div>
 </div>
+
 
 <style>
   .page {
@@ -157,6 +139,14 @@
     flex-wrap: wrap;
   }
 
+  .kicker {
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    opacity: 0.8;
+  }
+
   .h1 {
     margin: 0;
     font-size: 1.85rem;
@@ -168,108 +158,55 @@
     margin-top: 6px;
   }
 
-  .right { text-align: right; }
   .muted { opacity: 0.7; }
-  .nowrap { white-space: nowrap; }
 
-  /* TABLE WRAP */
-  .table-wrap {
-    width: 100%;
-    border-radius: 16px;
+  /* Cards grid */
+  .grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .card--event {
+    border-radius: 18px;
     border: 1px solid rgba(255,255,255,0.10);
     background: rgba(0,0,0,0.18);
     overflow: hidden;
+    padding: 14px;
   }
 
-  table.admin-events-table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: separate;
-    border-spacing: 0;
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
   }
 
-  /* Column sizing */
-  table.admin-events-table col.col-event   { width: 30%; }
-  table.admin-events-table col.col-locks   { width: 18%; }
-  table.admin-events-table col.col-lockstatus { width: 20%; }
-  table.admin-events-table col.col-entries { width: 10%; }
-  table.admin-events-table col.col-results { width: 12%; }
-  table.admin-events-table col.col-actions { width: 10%; }
-
-  table.admin-events-table thead th {
-    text-align: left;
-    padding: 10px 12px;
-    font-weight: 900;
-    font-size: 0.92rem;
-    border-bottom: 1px solid rgba(255,255,255,0.10);
-    background: transparent;
-    white-space: nowrap;
+  .top-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 140px;
   }
 
-  table.admin-events-table tbody td {
-    padding: 16px 14px;
-    vertical-align: middle;
-    background: transparent;
-    border-bottom: 0;
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    margin: 10px 0;
   }
 
-  table.admin-events-table tbody tr {
-    position: relative;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  table.admin-events-table tbody tr:last-child {
-    border-bottom: 0;
-  }
-
-  table.admin-events-table tbody tr::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: rgba(212, 175, 55, 0.06);
-    opacity: 0;
-    transition: opacity 120ms ease;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  table.admin-events-table tbody tr::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 10px;
-    bottom: 10px;
-    width: 3px;
-    border-radius: 999px;
-    background: rgba(212, 175, 55, 0.45);
-    opacity: 0;
-    transition: opacity 120ms ease;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  table.admin-events-table tbody tr:hover::before,
-  table.admin-events-table tbody tr:hover::after {
-    opacity: 1;
-  }
-
-  table.admin-events-table thead th,
-  table.admin-events-table tbody td {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* CELL LAYOUT */
+  /* Event cell */
   .event-cell {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr);
-    gap: 14px;
+    gap: 12px;
     align-items: center;
+    min-width: 0;
   }
 
   .logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
     object-fit: cover;
     border: 1px solid rgba(255,255,255,0.10);
     background: rgba(0,0,0,0.25);
@@ -277,18 +214,17 @@
 
   .event-text {
     display: grid;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
   }
 
   .title {
     font-weight: 950;
     line-height: 1.12;
-    white-space: normal;
-    overflow: visible;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .subtitle {
@@ -309,37 +245,62 @@
     text-overflow: ellipsis;
   }
 
-  .lockstatus-wrap {
+  /* Body blocks */
+  .card-body {
     display: grid;
-    gap: 8px;
+    grid-template-columns: 1fr 1.4fr 0.8fr;
+    gap: 10px;
+    align-items: start;
   }
 
-  .lock-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  .block {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
   }
 
-  /* PILLS + BUTTONS */
+  .block--right {
+    justify-items: end;
+    text-align: right;
+  }
+
+  .label {
+    font-weight: 900;
+    opacity: 0.75;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .value {
+    font-weight: 700;
+  }
+
+  /* Pills */
   .pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 30px;
-    padding: 0 12px;
+    height: 28px;
+    padding: 0 10px;
     border-radius: 999px;
     white-space: nowrap;
-  }
-
-  .entries-pill {
-    min-width: 42px;
-    font-weight: 900;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    font-size: 0.82rem;
+    letter-spacing: 0.01em;
   }
 
   .pill--muted {
     border-color: rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.04);
     color: rgba(255,255,255,0.75);
+  }
+
+  .pill--gold {
+    border-color: rgba(212,175,55,0.25);
+    background: rgba(212,175,55,0.10);
+    color: rgba(245,213,138,0.95);
   }
 
   .pill--red {
@@ -353,195 +314,118 @@
     background: rgba(80,216,150,0.07);
     color: rgba(210,255,235,0.95);
   }
+  .entries-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.entries-left { display: grid; gap: 4px; }
+.manage-btn { justify-self: end; }
+  .entries-pill { min-width: 38px; }
+.pill { height: 26px; padding: 0 10px; font-size: 0.80rem; }
+.entries-pill { min-width: 34px; height: 24px; }
+  /* Lock UI */
+  .lockui { display: grid; gap: 6px; }
 
-  .btn--sm {
-    padding: 8px 12px;
+  .lock-actions {
+    display: inline-flex;
+    width: fit-content;
     border-radius: 12px;
-    font-size: 0.92rem;
+    padding: 3px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.22);
+    gap: 3px;
+    flex-wrap: wrap;
   }
 
-  .btn--ghost {
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.03);
-    color: rgba(255,255,255,0.9);
+  /* Buttons */
+  .btn {
+    appearance: none;
+    cursor: pointer;
+    font-weight: 900;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: transparent;
+    color: rgba(255,255,255,0.92);
+    padding: 10px 12px;
+    transition: border-color 0.14s ease, background 0.14s ease, transform 0.12s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .btn--ghost:hover {
-    background: rgba(255,255,255,0.06);
+  .btn--sm { padding: 8px 12px; border-radius: 12px; font-size: 0.92rem; }
+
+  .btn--vip {
+    border-color: rgba(212,175,55,0.25);
+    background: rgba(212,175,55,0.10);
   }
 
-  .btn--ghost:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .btn--vip:hover {
+    border-color: rgba(212,175,55,0.35);
+    background: rgba(212,175,55,0.14);
+    transform: translateY(-1px);
+  }
+
+  .btn--seg {
+    border: 0 !important;
+    background: transparent !important;
+    padding: 6px 9px;
+    border-radius: 10px;
+    font-size: 0.86rem;
+  }
+
+  .btn--seg:hover {
+    background: rgba(255,255,255,0.06) !important;
+  }
+
+  .btn:active { transform: translateY(1px); }
+
+  .card-foot {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  /* Mobile: stack everything, prevent overflow */
+  @media (max-width: 820px) {
+    .page { padding: 16px; }
+
+    .top-right { min-width: 0; }
+
+    .card-body {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .block--right {
+      justify-items: start;
+      text-align: left;
+    }
+
+    .lock-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .lock-actions .btn--seg {
+      flex: 1 1 auto;
+      min-width: 90px;
+      text-align: center;
+    }
   }
 
   @media (max-width: 820px) {
-    table.admin-events-table col.col-locks   { width: 170px; }
-    table.admin-events-table col.col-results { width: 150px; }
-    table.admin-events-table col.col-actions { width: 130px; }
+  .card--event { padding: 12px; }
+  .card-body { gap: 12px; }
+
+  .entries-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    width: 100%;
   }
 
-  @media (max-width: 680px) {
-    .page { padding: 16px; }
-    .logo { width: 38px; height: 38px; border-radius: 12px; }
-
-    table.admin-events-table col.col-locks   { width: 160px; }
-    table.admin-events-table col.col-entries { width: 90px; }
-    table.admin-events-table col.col-results { width: 140px; }
-    table.admin-events-table col.col-actions { width: 120px; }
-  }
-
-  /* ===== polish pass: tighter + more premium ===== */
-
-/* slightly denser table */
-table.admin-events-table tbody td {
-  padding: 12px 14px; /* was 16px 14px */
+  .manage-btn { padding: 8px 12px; }
 }
-
-table.admin-events-table thead th {
-  padding: 10px 14px;
-  font-size: 0.88rem;
-  letter-spacing: 0.02em;
-  color: rgba(255,255,255,0.82);
-}
-
-/* reduce overall row visual height */
-table.admin-events-table tbody tr::after {
-  top: 12px;
-  bottom: 12px;
-}
-
-/* Event cell: tighter vertical rhythm */
-.event-text { gap: 2px; }
-
-.title {
-  font-size: 0.98rem;
-  -webkit-line-clamp: 1; /* 2 -> 1, feels cleaner here */
-}
-
-.subtitle {
-  font-size: 0.82rem;
-  opacity: 0.70;
-}
-
-.slug {
-  font-size: 0.74rem;
-  opacity: 0.55;
-}
-
-/* Logos: slightly smaller = more refined */
-.logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-
-/* Locks column: make timestamp smaller & calmer */
-.locks-col {
-  font-size: 0.86rem;
-  opacity: 0.68;
-}
-
-/* Pills: slightly shorter, consistent */
-.pill {
-  height: 28px;          /* was 30px */
-  padding: 0 10px;       /* tighter */
-  font-size: 0.82rem;
-  letter-spacing: 0.01em;
-}
-
-/* Entries pill should look like a badge, not a big bubble */
-.entries-pill {
-  min-width: 38px;
-  height: 26px;
-  font-weight: 900;
-}
-
-/* Lock status stack: make it one aligned block */
-.lockstatus-wrap {
-  gap: 6px; /* was 8 */
-}
-
-/* Lock action buttons: tighter + aligned */
-.lock-actions {
-  gap: 6px;
-}
-
-.btn--sm {
-  padding: 7px 10px;  /* was 8px 12px */
-  border-radius: 10px;
-  font-size: 0.88rem;
-}
-
-/* Manage button: make it consistent + less bulky */
-.actions-col .btn--vip.btn--sm {
-  padding: 8px 12px;
-  border-radius: 12px;
-}
-
-/* Align Manage column content nicely */
-.actions-col {
-  text-align: right;
-}
-/* ===== lock controls: segmented, premium ===== */
-
-.lockstatus-wrap > .pill {
-  width: fit-content;
-}
-
-.lock-actions {
-  display: inline-flex;
-  width: fit-content;
-  border-radius: 12px;
-  padding: 4px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.22);
-}
-
-.lock-actions .btn {
-  border: 0 !important;
-  background: transparent !important;
-  padding: 7px 10px;
-  border-radius: 10px;
-  color: rgba(255,255,255,0.88);
-}
-
-.lock-actions .btn:hover {
-  background: rgba(255,255,255,0.06) !important;
-}
-
-.lock-actions .btn:active {
-  transform: translateY(0px);
-}
-
-.lockstatus-inline{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.lockui{
-  position: relative;
-  display: grid;
-  gap: 8px;
-  padding: 6px 10px;
-}
-
-.lockui-top{
-  display:flex;
-  align-items:center;
-  justify-content:flex-start;
-}
-table.admin-events-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  backdrop-filter: blur(10px);
-  background: rgba(0,0,0,0.35);
-}
-
-.entries-col, .results-col { text-align: center; }
-table.admin-events-table thead th:nth-child(4),
-table.admin-events-table thead th:nth-child(5) { text-align: center; }
 </style>

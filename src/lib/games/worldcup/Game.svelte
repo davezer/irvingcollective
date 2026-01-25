@@ -1,6 +1,8 @@
 <!-- src/lib/games/worldcup/Game.svelte -->
 <script>
   import { WORLD_CUP_ROUNDS, WORLD_CUP_ROUND_LABELS, WORLD_CUP_POINTS } from '$lib/scoring/worldCup.js';
+  import SectionHead from '$lib/ui/SectionHeader.svelte';
+  import { WORLDCUP_RULES } from './rules.js';
 
   export let event;
   export let locked;
@@ -40,145 +42,182 @@
   }
 </script>
 
-<div class="wc-card">
-  <div class="wc-head">
-    <div>
-      <div class="wc-kicker">World Cup Survivor</div>
-      <div class="wc-round">
-        <span class="wc-round-name">{roundLabel}</span>
-        <span class="wc-round-pts">{roundPts} pts</span>
-      </div>
-      <div class="wc-subtle">
-        One team per round. No re-use. Lose once and you’re eliminated.
+<div class="page">
+  <!-- Header block (match other games vibe) -->
+  <div class="card">
+    <div class="kicker">Final Fifa Frenzy</div>
+
+    <div class="head-row">
+      <SectionHead rules={WORLDCUP_RULES} />
+      <div class="bankroll">
+        <div class="bankroll-label">Bankroll</div>
+        <div class="bankroll-value">{bankroll}</div>
       </div>
     </div>
 
-    <div class="wc-bankroll">
-      <div class="wc-bankroll-label">Bankroll</div>
-      <div class="wc-bankroll-value">{bankroll}</div>
+    <div class="title-row">
+      <div class="title">{roundLabel}</div>
+      <div class="pts">{roundPts} pts</div>
+    </div>
+
+    <div class="sub">
+      One team per round. No re-use. Lose once and you’re eliminated.
     </div>
   </div>
 
-  {#if loading}
-    <div class="wc-note">Loading teams…</div>
-  {:else if loadError}
-    <div class="wc-error">
-      {loadError}
-      <button class="btn btn--ghost btn--sm" on:click={onRetryOptions}>Retry</button>
-    </div>
-  {:else if eliminated}
-    <div class="wc-elim">
-      You’re eliminated. Your run is over for this World Cup.
-    </div>
-  {:else}
-    <form method="POST" action="?/save" class="wc-form">
-      <input type="hidden" name="round" value={currentRound} />
+  <!-- Pick block -->
+  <div class="card">
+    <div class="section-title">Pick a team</div>
 
-      <label class="wc-label">Pick a team</label>
-      <select class="wc-select" name="teamId" bind:value={teamId} disabled={locked}>
-        <option value="" disabled>Select a team</option>
-        {#each teams as t (t.id)}
-          <option value={t.id} disabled={isUsed(String(t.id))}>
-            {t.name}{isUsed(String(t.id)) ? ' (used)' : ''}
-          </option>
-        {/each}
-      </select>
+    {#if loading}
+      <div class="muted">Loading teams…</div>
+    {:else if loadError}
+      <div class="error">
+        <div>{loadError}</div>
+        <button class="btn btn--ghost btn--sm" on:click={onRetryOptions}>Retry</button>
+      </div>
+    {:else if eliminated}
+      <div class="elim">
+        You’re eliminated. Your run is over for this World Cup.
+      </div>
+    {:else}
+      <form method="POST" action="?/save" class="form">
+        <input type="hidden" name="round" value={currentRound} />
 
-      <button class="btn btn--vip wc-submit" disabled={locked || !teamId}>
-        {locked ? 'Locked' : 'Save Pick'}
-      </button>
-    </form>
-  {/if}
+        <label class="label">Select a team</label>
+        <select class="select" name="teamId" bind:value={teamId} disabled={locked}>
+          <option value="" disabled>Select a team</option>
+          {#each teams as t (t.id)}
+            <option value={t.id} disabled={isUsed(String(t.id))}>
+              {t.name}{isUsed(String(t.id)) ? ' (used)' : ''}
+            </option>
+          {/each}
+        </select>
 
-  <div class="wc-history">
-    <div class="wc-history-title">Your Run</div>
+        <button class="btn btn--vip" disabled={locked || !teamId}>
+          {locked ? 'Locked' : 'Save Pick'}
+        </button>
+      </form>
+    {/if}
+  </div>
 
-    <div class="wc-history-list">
+  <!-- History block -->
+  <div class="card">
+    <div class="section-title">Your Run</div>
+
+    <div class="history">
       {#each WORLD_CUP_ROUNDS as r}
         {#if picksByRound?.[r]}
-          <div class="wc-row">
-            <div class="wc-row-left">
-              <div class="wc-row-round">{WORLD_CUP_ROUND_LABELS[r] || r}</div>
-              <div class="wc-row-team">{teamName(picksByRound[r])}</div>
+          <div class="row">
+            <div class="row-left">
+              <div class="row-round">{WORLD_CUP_ROUND_LABELS[r] || r}</div>
+              <div class="row-team">{teamName(picksByRound[r])}</div>
             </div>
-            <div class="wc-row-right">
-              <span class="wc-chip">{WORLD_CUP_POINTS[r] || 0} pts</span>
+            <div class="row-right">
+              <span class="chip">{WORLD_CUP_POINTS[r] || 0} pts</span>
             </div>
           </div>
         {/if}
       {/each}
 
       {#if !Object.keys(picksByRound || {}).length}
-        <div class="wc-note">No picks submitted yet.</div>
+        <div class="muted">No picks submitted yet.</div>
       {/if}
     </div>
   </div>
 </div>
 
 <style>
-  .wc-card{
+  /* page wrapper similar to other event pages */
+  .page{
+    display: grid;
+    gap: 16px;
+  }
+
+  /* your house-style card look (matches admin + other games) */
+  .card{
     border-radius: 18px;
     border: 1px solid rgba(255,255,255,0.10);
     background: rgba(0,0,0,0.18);
     padding: 16px;
   }
 
-  .wc-head{
-    display:flex;
-    justify-content:space-between;
-    gap:16px;
-    flex-wrap:wrap;
-    align-items:flex-start;
-    margin-bottom: 12px;
-  }
-
-  .wc-kicker{
+  .kicker{
     font-weight: 900;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 0.78rem;
     opacity: 0.85;
+    margin-bottom: 8px;
   }
 
-  .wc-round{
-    display:flex;
-    gap:10px;
-    align-items:baseline;
-    margin-top: 4px;
+  .head-row{
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
-  .wc-round-name{
-    font-size: 1.25rem;
-    font-weight: 950;
+  /* SectionHead component probably renders the Rules button; keep it aligned left */
+  :global(.sectionHead){
+    margin: 0;
   }
 
-  .wc-round-pts{
-    font-size: 0.9rem;
-    opacity: 0.75;
+  .bankroll{
+    text-align: right;
+    opacity: 0.9;
+    min-width: 110px;
   }
 
-  .wc-subtle{ opacity: 0.7; margin-top: 4px; }
-
-  .wc-bankroll{
-    text-align:right;
-    opacity:0.9;
+  .bankroll-label{
+    font-size: 0.8rem;
+    opacity: 0.7;
   }
 
-  .wc-bankroll-label{
-    font-size:0.8rem;
-    opacity:0.7;
-  }
-
-  .wc-bankroll-value{
+  .bankroll-value{
     font-weight: 950;
     font-size: 1.2rem;
   }
 
-  .wc-form{ display:grid; gap:10px; margin-top: 10px; }
+  .title-row{
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 8px;
+  }
 
-  .wc-label{ font-weight: 900; opacity: 0.9; }
+  .title{
+    font-size: 1.35rem;
+    font-weight: 950;
+  }
 
-  .wc-select{
+  .pts{
+    font-size: 0.95rem;
+    opacity: 0.75;
+  }
+
+  .sub{
+    margin-top: 6px;
+    opacity: 0.7;
+  }
+
+  .section-title{
+    font-weight: 950;
+    margin-bottom: 10px;
+  }
+
+  .form{
+    display: grid;
+    gap: 10px;
+  }
+
+  .label{
+    font-weight: 900;
+    opacity: 0.9;
+  }
+
+  .select{
     width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
@@ -188,43 +227,56 @@
     outline: none;
   }
 
-  .wc-submit{ justify-self: start; }
+  .btn{
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: transparent;
+    color: rgba(255,255,255,0.92);
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 850;
+  }
 
-  .wc-error{
-    margin-top: 10px;
-    display:flex;
-    gap:10px;
-    align-items:center;
+  .btn--vip{
+    border-color: rgba(212,175,55,0.22);
+    background: rgba(212,175,55,0.06);
+    justify-self: start;
+  }
+
+  .btn--ghost{
+    background: rgba(255,255,255,0.03);
+  }
+
+  .btn--sm{
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+  }
+
+  .error{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
     opacity: 0.9;
   }
 
-  .wc-note{
-    margin-top: 10px;
-    opacity: 0.7;
-  }
+  .muted{ opacity: 0.7; }
 
-  .wc-elim{
-    margin-top: 10px;
+  .elim{
     padding: 12px;
     border-radius: 14px;
     border: 1px solid rgba(255,120,120,0.20);
     background: rgba(255,120,120,0.07);
   }
 
-  .wc-history{
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+  .history{
+    display: grid;
+    gap: 8px;
   }
 
-  .wc-history-title{
-    font-weight: 950;
-    margin-bottom: 8px;
-  }
-
-  .wc-history-list{ display:grid; gap:8px; }
-
-  .wc-row{
+  .row{
     display:flex;
     justify-content:space-between;
     gap:12px;
@@ -234,10 +286,19 @@
     background: rgba(0,0,0,0.18);
   }
 
-  .wc-row-round{ font-weight: 900; opacity: 0.85; font-size: 0.9rem; }
-  .wc-row-team{ opacity: 0.75; font-size: 0.88rem; margin-top: 2px; }
+  .row-round{
+    font-weight: 900;
+    opacity: 0.85;
+    font-size: 0.9rem;
+  }
 
-  .wc-chip{
+  .row-team{
+    opacity: 0.75;
+    font-size: 0.88rem;
+    margin-top: 2px;
+  }
+
+  .chip{
     display:inline-flex;
     align-items:center;
     height: 26px;
@@ -247,5 +308,9 @@
     background: rgba(255,255,255,0.04);
     opacity: 0.85;
     white-space: nowrap;
+  }
+
+  @media (max-width: 720px){
+    .bankroll{ text-align: left; }
   }
 </style>

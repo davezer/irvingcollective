@@ -137,6 +137,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
+    min-width: 0;                 /* ✅ allow grid to shrink */
   }
   @media (max-width: 980px) {
     .mm-grid {
@@ -149,6 +150,9 @@
     border-radius: 16px;
     padding: 14px;
     background: rgba(10, 12, 18, 0.35);
+    min-width: 0;                 /* ✅ CRITICAL: prevent panel overflow in CSS grid */
+    box-sizing: border-box;
+    overflow: hidden;             /* ✅ clip any 1px rounding / overflow */
   }
 
   .head {
@@ -157,19 +161,28 @@
     align-items: flex-start;
     gap: 10px;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .list {
     max-height: 420px;
-    overflow: auto;
-    padding-right: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;           /* ✅ no horizontal scroll */
+    min-width: 0;
+    box-sizing: border-box;
   }
 
+  /* ✅ Use grid row so button can't push outside */
   .row {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px; /* text column + fixed button column */
     align-items: center;
     gap: 10px;
+
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+
     padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
@@ -178,7 +191,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    min-width: 0;
+    min-width: 0;                 /* ✅ text can shrink */
   }
 
   .logo {
@@ -187,6 +200,7 @@
     border-radius: 8px;
     object-fit: cover;
     background: rgba(255, 255, 255, 0.06);
+    flex: 0 0 auto;
   }
 
   .names {
@@ -198,6 +212,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* ✅ Hard override global .btn sizing (this is usually the real culprit) */
+  button.btn.btn--ghost {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    padding: 0 !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    border-radius: 12px !important;
+    justify-self: end;
+    box-sizing: border-box;
   }
 
   .slotline {

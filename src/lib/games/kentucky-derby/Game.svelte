@@ -1,5 +1,8 @@
 <script>
   import { enhance } from '$app/forms';
+  import GameRules from '$lib/components/GameRules.svelte';
+  import { DERBY_RULES } from './rules.js';
+  import SectionHead from '$lib/ui/SectionHeader.svelte';
 
   export let event;
   export let locked = false;
@@ -71,13 +74,17 @@
     wagerOk &&
     (horseId !== lastSavedHorseId || currentWager !== lastSavedWager);
 </script>
+<!-- wherever you want this to appear (usually under the event header card) -->
+
 
 <div class="card">
   <div class="section-head">
     <div>
       <div class="kicker">Your Pick</div>
-      <h2 class="h2" style="margin:0;">Kentucky Derby</h2>
+      <h2 class="h2" style="margin:0;">Kentucky Derby<div class="sectionHead"><SectionHead rules={DERBY_RULES}/></div></h2>
+      
     </div>
+    
 
     {#if locked}
       <span class="pill">Locked</span>
@@ -182,4 +189,10 @@
   .actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
   .kicker { letter-spacing: 0.12em; font-size: 0.72rem; opacity: 0.85; }
   .small { font-size: 0.85rem; }
+
+.sectionHead {
+flex-wrap: wrap;
+justify-self: left;
+padding-bottom: 2px;
+}
 </style>

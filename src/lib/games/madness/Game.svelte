@@ -2,6 +2,9 @@
   import { enhance } from '$app/forms';
   import MarchTeamPicker from '$lib/components/MarchTeamPicker.svelte';
   import RoundTracker from './RoundTracker.svelte';
+  import { MADNESS_RULES } from './rules.js';
+  import GameRules from '$lib/components/GameRules.svelte';
+  import SectionHead from '$lib/ui/SectionHeader.svelte';
 
   export let event;
   export let locked = false;
@@ -72,7 +75,6 @@
     logoUrl: t.logo ?? t.logoUrl ?? ''
   }));
 </script>
-
 {#if locked}
   <div class="card">
     <div class="section-head">
@@ -166,9 +168,16 @@
   >
     <div class="page-wide">
       <div class="card">
-        <div class="section-head">
+        <div class="section-head section-head--stack">
           <h2 class="h2">Your March Entry</h2>
-          <span class="pill">{picks.length}/4</span>
+
+          <div class="section-head__row">
+            <div class="rules-wrap">
+              <SectionHead rules={MADNESS_RULES} />
+            </div>
+
+            <span class="pill pill--tight">{picks.length}/4</span>
+          </div>
         </div>
 
         <p class="subtle" style="margin-top: 10px;">
@@ -248,4 +257,59 @@
   @media (max-width: 640px) {
     .page-wide { padding: 0 14px; }
   }
+.sectionHead {
+  flex-wrap: wrap;
+  justify-self: left;
+  padding-bottom: 2px;
+}
+
+/* --- Madness mobile header fix --- */
+.section-head--stack{
+  display: grid;
+  gap: 10px;
+  align-items: start;
+}
+
+.section-head__row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+/* prevent the Rules button from doing weird flex things */
+.rules-wrap{
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* tighten the count pill so it doesn't look like a giant floating bubble */
+.pill--tight{
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* On really small screens, keep row but allow it to wrap cleanly */
+@media (max-width: 420px){
+  .section-head__row{
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .pill--tight{
+    margin-left: auto;
+  }
+}
+
+/* your current .sectionHead was fighting layout; make it neutral */
+.sectionHead{
+  padding: 0;
+  flex: 0 0 auto;
+}
+/* The panel/card that contains the list */
+
 </style>

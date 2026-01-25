@@ -1,6 +1,7 @@
 <script>
   import { enhance } from '$app/forms';
   import { fetchSeedsFromProvider, parseSeedsJson } from '$lib/games/madness/seeds.js';
+  import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
   export let data;
 
@@ -95,6 +96,7 @@
   <div class="card">
     <div class="section-head">
       <h2 class="h2">Publish Results + Recompute</h2>
+      <UnpublishButton published={!!event.results_published_at} />
       <span class="pill">{pickedTeams?.length || 0} picked teams</span>
     </div>
 

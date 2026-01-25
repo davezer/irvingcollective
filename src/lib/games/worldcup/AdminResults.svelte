@@ -2,6 +2,7 @@
 <script>
   import { enhance } from '$app/forms';
   import { WORLD_CUP_ROUNDS, WORLD_CUP_ROUND_LABELS, WORLD_CUP_POINTS } from '$lib/scoring/worldCup.js';
+  import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
   export let data;
 
@@ -69,6 +70,7 @@
             </select>
           </div>
         </div>
+        <UnpublishButton published={!!event.results_published_at} />
         <div class="divider"></div>
         
 
@@ -93,7 +95,7 @@
           </div>
         </div>
 
-        <button class="btn btn--vip">Publish + Recompute</button>
+        
       </form>
       <div class="actions">
   <button class="btn btn--vip">Publish + Recompute</button>

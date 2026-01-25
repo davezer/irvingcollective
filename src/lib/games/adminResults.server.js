@@ -144,3 +144,55 @@ export async function actionAdvanceRound({ db, event, request, fetchImpl }) {
   // form unused but keeps signature consistent
   return handler.advanceRound({ db, event, form, fetchImpl });
 }
+
+export async function actionResetEntries({ db, event }) {
+  const eventId = event.id;
+
+  // 1. Delete scores FIRST (FK safety)
+  await db
+    .prepare(`DELETE FROM entry_scores WHERE event_id = ?`)
+    .bind(eventId)
+    .run();
+
+  // 2. Delete entries
+  await db
+    .prepare(`DELETE FROM entries WHERE event_id = ?`)
+    .bind(eventId)
+    .run();
+
+  return { ok: true };
+}
+
+export async function actionUnpublish({ db, event }) {
+  if (!event?.id) {
+    return { ok: false, error: 'Invalid event' };
+  }
+
+  // 1. Mark results as unpublished
+  await db
+    .prepare(
+      `
+      UPDATE events
+      SET results_published_at = NULL
+      WHERE id = ?
+      `
+    )
+    .bind(event.id)
+    .run();
+
+  // 2. Remove all computed scores for this event
+  await db
+    .prepare(
+      `
+      DELETE FROM entry_scores
+      WHERE event_id = ?
+      `
+    )
+    .bind(event.id)
+    .run();
+
+  return { ok: true };
+}
+
+
+

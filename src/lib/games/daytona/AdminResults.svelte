@@ -1,5 +1,6 @@
 <script>
   import { enhance } from '$app/forms';
+  import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
   export let data;
 
@@ -256,6 +257,7 @@
         <button class="btn btn--vip" type="submit" disabled={saving || !isComplete || !isUnique}>
           {saving ? 'Publishing…' : 'Publish results + recompute'}
         </button>
+        
 
         <div class="muted">
           {#if !isUnique}
@@ -270,6 +272,7 @@
         </div>
       </div>
     </form>
+    <UnpublishButton published={!!event.results_published_at} />
   </div>
 
   <div class="spacer"></div>

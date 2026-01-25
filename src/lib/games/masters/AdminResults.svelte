@@ -1,6 +1,7 @@
 <script>
   import { enhance } from '$app/forms';
   import { MASTERS_STAGE_LABELS, MASTERS_STAGE_KEYS, MASTERS_STAGE_POINTS } from '$lib/scoring/masters.js';
+  import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
 
   export let data;
@@ -89,7 +90,7 @@ const STAGES = MASTERS_STAGE_KEYS.map((id) => ({
               {/each}
             </select>
           </div>
-
+          <UnpublishButton published={!!event.results_published_at} />
           <input type="hidden" name="winnerSnapshot" value={winnerId ? snapFor(winnerId) : ''} />
 
           <div class="actions">

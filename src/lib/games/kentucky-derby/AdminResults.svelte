@@ -1,5 +1,6 @@
 <script>
   import { enhance } from '$app/forms';
+  import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
   export let data;
 
@@ -78,7 +79,7 @@
           <button class="btn btn--vip" type="submit" disabled={!winnerHorseId || !payout}>
             Publish + recompute
           </button>
-
+          
           {#if results?.published_at}
             <div class="muted small">Published: {results.published_at}</div>
           {/if}

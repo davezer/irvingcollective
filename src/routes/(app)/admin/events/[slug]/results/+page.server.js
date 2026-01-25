@@ -5,12 +5,12 @@ import {
   loadAdminResults,
   actionPublish,
   actionSyncSeeds,
-  actionAdvanceRound
+  actionResetEntries,
+  actionUnpublish
 } from '$lib/games/adminResults.server.js';
 
 export const load = async ({ locals, platform, params, fetch }) => {
   if (!locals.user) throw redirect(302, '/login');
-  // if (!locals.user.is_admin) throw redirect(302, "/");
 
   const db = platform.env.DB;
   const event = await getEventBySlug(db, params.slug);
@@ -40,13 +40,23 @@ export const actions = {
     return actionPublish({ db, event, request, fetchImpl: fetch });
   },
 
-  advanceRound: async ({ locals, platform, params, request, fetch }) => {
+  unpublish: async ({ locals, platform, params, request }) => {
     if (!locals.user) throw redirect(302, '/login');
 
     const db = platform.env.DB;
     const event = await getEventBySlug(db, params.slug);
     if (!event) return fail(404, { ok: false, error: 'Event not found' });
 
-    return actionAdvanceRound({ db, event, request, fetchImpl: fetch });
+    return actionUnpublish({ db, event, request });
+  },
+
+  resetEntries: async ({ locals, platform, params, request }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionResetEntries({ db, event, request });
   }
 };

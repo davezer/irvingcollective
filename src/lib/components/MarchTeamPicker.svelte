@@ -94,7 +94,7 @@
 
     <div class="list" style="margin-top: 10px;">
       {#if value.length === 0}
-        <div class="muted">Pick 4 teams to submit.</div>
+        <div class="muted">Keep seeding in mind. Won't anyone think of the seeeeds!</div>
       {:else}
         {#each value as opt (opt.id)}
           <div class="row">

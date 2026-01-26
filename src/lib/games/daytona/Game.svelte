@@ -324,7 +324,7 @@
             </div>
 
             <p class="subtle" style="margin-top: 0;">
-              Pick one driver outside your Top 10. Pure vibes. Pure danger.
+              Pick one driver outside your Top 10. Pure danger.
             </p>
 
             <div class="spacer-sm"></div>

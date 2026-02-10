@@ -107,14 +107,14 @@
       {/if}
     </div>
 
-    {#if optionsMode}
+    <!-- {#if optionsMode}
       <div class="debug">
         <div class="muted">Options mode: {optionsMode}</div>
         {#if optionsNote}
           <div class="muted">{optionsNote}</div>
         {/if}
       </div>
-    {/if}
+    {/if} -->
   </div>
 </div>
 

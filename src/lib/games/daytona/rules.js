@@ -43,7 +43,7 @@ export const DAYTONA_RULES = {
       heading: '🔥 Podium Exacta Bonus',
       bullets: [
         'If you correctly predict the exact 1st–2nd–3rd finishing order (all three, in the correct order), you earn a one-time +500 bonus.',
-        'The podium is shown as worth 600 base points (1st = 250, 2nd = 200, 3rd = 150), and if you nail the exact 1–2–3 order you get 600 base + 500 bonus = 1,100 points.',
+        'The podium is shown as worth 400 base points (1st = 250, 2nd = 100, 3rd = 50), and if you nail the exact 1–2–3 order you get 400 base + 500 bonus = 900 points.',
         'This bonus:',
         '• Applies only when all three podium positions are correct and in order',
         '• Is awarded once per entry',

@@ -289,6 +289,12 @@
         <p class="subtle" style="margin-top: 10px;">
           Choose your top 10 finishers. Order matters. Chaos Car for extra spice.
         </p>
+        <p class="subtle" style="margin-top: 10px;">
+          45 cars are in the pool. Only 41 make the race. Do your homework and pay attention to who qualifies.
+        </p>
+        <p class="subtle" style="margin-top: 10px;">
+          If you choose a car who does not qualify, thats on you.
+        </p>
 
         <div class="spacer-sm"></div>
 

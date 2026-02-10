@@ -1,10 +1,12 @@
 // src/lib/games/daytona/options.js
-import { getOptionsCache, setOptionsCache } from '$lib/server/db/optionsCache.js';
-import { fetchCupDrivers } from '$lib/server/providers/nascar.js';
-import { findCupRaceId, fetchRaceEntryList } from '$lib/server/providers/nascarRaceEntry.js';
-import { fetchPrelimEntryList } from '$lib/server/providers/nascarPrelimEntry.js';
+//
+// NOTE: Daytona options are intentionally hardwired.
+// We manually publish results and do not need (or want) the fragility of external NASCAR feeds.
 
-const MAX_AGE_SECONDS = 60 * 60 * 6; // 6 hours
+import { getOptionsCache, setOptionsCache } from '$lib/server/db/optionsCache.js';
+import { getManualCupDriverOptions } from '$lib/server/nascar/manualCupDrivers.js';
+
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
 
 function pickCarNumber(raw) {
   return (
@@ -60,13 +62,14 @@ function normalizeOptions(list) {
   });
 }
 
-export async function getOptions({ db, event, fetchImpl }) {
+export async function getOptions({ db, event }) {
   const seasonYear = new Date(Number(event.start_at) * 1000).getUTCFullYear() || 2026;
 
-  // 1) Try cached entrants first
-  const provider = 'nascar';
-  const cacheKey = `daytona-entrants:${seasonYear}:v1`;
+  const provider = 'manual';
+  // Bump the version if you ever change IDs or the list format.
+  const cacheKey = `daytona-manual:${seasonYear}:v1`;
 
+  // 1) Serve cached manual options (keeps behavior consistent with other games)
   const cached = await getOptionsCache({
     db,
     eventId: event.id,
@@ -80,96 +83,40 @@ export async function getOptions({ db, event, fetchImpl }) {
       provider,
       cacheKey,
       options: normalizeOptions(cached),
-      mode: 'entrants:cache',
+      mode: 'manual:cache',
       note: ''
     };
   }
 
-  // 2) Find race_id for Daytona 500 (Cup series_1)
-  let raceId = null;
-  try {
-    raceId = await findCupRaceId({
-      fetchImpl,
-      seasonYear,
-      raceName: 'DAYTONA 500'
-    });
-  } catch (e) {
-    const fallback = await fetchCupDrivers(fetchImpl);
+  // 2) Load hardwired list
+  const manual = normalizeOptions(getManualCupDriverOptions());
+
+  if (!manual.length) {
     return {
       provider,
       cacheKey,
-      options: normalizeOptions(fallback),
-      mode: 'fallback:drivers',
-      note: `Race ID lookup failed: ${e?.message || e}`
+      options: [],
+      mode: 'manual:empty',
+      note: 'Manual Daytona driver list is empty. Check src/lib/server/nascar/manualCupDrivers.js'
     };
   }
 
-  // 2.5) Prelim entry list (often available earlier than full entrants)
-  const prelim = await fetchPrelimEntryList({ fetchImpl, raceId });
-
-  if (prelim?.ok) {
-    const normalized = normalizeOptions(prelim.options);
-    if (normalized.length) {
-      const fetchedAt = Math.floor(Date.now() / 1000);
-      await setOptionsCache({
-        db,
-        eventId: event.id,
-        provider,
-        cacheKey,
-        payload: normalized,
-        fetchedAt
-      });
-
-      return {
-        provider,
-        cacheKey,
-        options: normalized,
-        mode: 'entrants:prelim',
-        note: '',
-        raceId
-      };
-    }
-  }
-
-  // 3) Fetch entrants for that race
-  const entry = await fetchRaceEntryList({
-    fetchImpl,
-    seasonYear,
-    seriesId: 1,
-    raceId
+  // 3) Store in cache table
+  const fetchedAt = Math.floor(Date.now() / 1000);
+  await setOptionsCache({
+    db,
+    eventId: event.id,
+    provider,
+    cacheKey,
+    payload: manual,
+    fetchedAt
   });
 
-  const normalizedEntrants = normalizeOptions(entry?.options);
-
-  if (normalizedEntrants.length) {
-    const fetchedAt = Math.floor(Date.now() / 1000);
-    await setOptionsCache({
-      db,
-      eventId: event.id,
-      provider,
-      cacheKey,
-      payload: normalizedEntrants,
-      fetchedAt
-    });
-
-    return {
-      provider,
-      cacheKey,
-      options: normalizedEntrants,
-      mode: 'entrants',
-      note: entry?.sourceUrl ? `source:${entry.sourceUrl}` : '',
-      raceId
-    };
-  }
-
-  // 4) fallback to drivers list
-  const fallback = await fetchCupDrivers(fetchImpl);
   return {
     provider,
     cacheKey,
-    options: normalizeOptions(fallback),
-    mode: 'fallback:drivers',
-    note: entry?.error || 'Entrants feed not available yet',
-    raceId
+    options: manual,
+    mode: 'manual',
+    note: ''
   };
 }

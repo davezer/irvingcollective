@@ -1,3 +1,4 @@
+
 <script>
   // RoundTracker.svelte
   // Read-only “progress” indicator for a user's selected teams during March Madness.
@@ -25,25 +26,31 @@
     return String(t?.id ?? t?.teamId ?? '');
   }
 
-  function seedOf(teamId) {
-    const s = Number(seedsByTeamId?.[teamId]);
-    return Number.isFinite(s) && s > 0 ? s : null;
-  }
+function seedOf(teamId, teamObj) {
+  const v = seedsByTeamId?.[teamId];
+  const s1 = Number(v?.seed ?? v);
+  if (Number.isFinite(s1) && s1 > 0) return s1;
+
+  const s2 = Number(teamObj?.seed ?? teamObj?.seedNumber ?? null);
+  if (Number.isFinite(s2) && s2 > 0) return s2;
+
+  return null;
+}
 
   function winsObj(teamId) {
     return winsByTeamId?.[teamId] || {};
   }
 
-  function pointsSoFar(teamId) {
-    const seed = seedOf(teamId);
-    if (!seed) return 0;
-    const wins = winsObj(teamId);
-    let pts = 0;
-    for (const r of ROUNDS) {
-      if (wins?.[r.key]) pts += seed * r.mult;
-    }
-    return pts;
+function pointsSoFar(teamId, teamObj) {
+  const seed = seedOf(teamId, teamObj);
+  if (!seed) return 0;
+  const wins = winsObj(teamId);
+  let pts = 0;
+  for (const r of ROUNDS) {
+    if (wins?.[r.key]) pts += seed * r.mult;
   }
+  return pts;
+}
 
   function winsCount(teamId) {
     const wins = winsObj(teamId);
@@ -52,12 +59,10 @@
     return c;
   }
 
-  function isEliminated(teamId) {
-    // We don’t have explicit elimination state; infer:
-    // if a team has no win flags AND you want to show “unknown”, keep it neutral.
-    // If you later add eliminatedByTeamId, you can wire it here.
-    return false;
-  }
+ function isEliminated(teamId) {
+  void teamId; // eslint: mark as intentionally unused
+  return false;
+}
 
   $: hasAnyResultsData =
     Object.keys(seedsByTeamId).length > 0 || Object.keys(winsByTeamId).length > 0;
@@ -78,7 +83,7 @@
       <div class="rt-teamcol">Team</div>
       <div class="rt-seedcol">Seed</div>
       <div class="rt-rounds">
-        {#each ROUNDS as r}
+        {#each ROUNDS as r (r.key)}
           <div class="rt-roundhdr">{r.label}</div>
         {/each}
       </div>
@@ -88,9 +93,9 @@
     {#each selectedTeams as t (teamIdOf(t))}
       {#if teamIdOf(t)}
         {@const tid = teamIdOf(t)}
-        {@const seed = seedOf(tid)}
+        {@const seed = seedOf(tid, t)}
         {@const wins = winsObj(tid)}
-        {@const pts = pointsSoFar(tid)}
+        {@const pts = pointsSoFar(tid, t)}
         {@const wc = winsCount(tid)}
 
         <div class={"rt-row " + (isEliminated(tid) ? "rt-elim" : "")}>

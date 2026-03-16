@@ -123,7 +123,7 @@ export async function publish({ db, event, form }) {
 export async function syncSeeds({ db, event, form, fetchImpl }) {
   const seedsJson = (form.get('seedsJson') || '').toString().trim();
 
-  let seeds = null;
+  let seeds = null; // rich: { [teamId]: { seed, region } }
   let source = 'provider';
   let note = '';
 
@@ -138,6 +138,13 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
     note = fetched.note || '';
   }
 
+  // ✅ numeric map used by admin + RoundTracker + scoring
+  const seedsByTeamId = {};
+  for (const [teamId, v] of Object.entries(seeds || {})) {
+    const seedNum = Number(v?.seed ?? v);
+    if (Number.isFinite(seedNum) && seedNum > 0) seedsByTeamId[String(teamId)] = seedNum;
+  }
+
   const now = Math.floor(Date.now() / 1000);
 
   await mergeResultsPayload({
@@ -145,12 +152,13 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
     eventId: event.id,
     now,
     patch: {
-      seeds,
+      seeds,         // { [teamId]: { seed, region } }
+      seedsByTeamId, // { [teamId]: number } ✅
       syncedAt: now,
       source,
       syncNote: note || null
     }
   });
 
-  return { ok: true, seedCount: Object.keys(seeds).length, source };
+  return { ok: true, seedCount: Object.keys(seedsByTeamId).length, source };
 }

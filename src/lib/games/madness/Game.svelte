@@ -3,7 +3,7 @@
   import MarchTeamPicker from '$lib/components/MarchTeamPicker.svelte';
   import RoundTracker from './RoundTracker.svelte';
   import { MADNESS_RULES } from './rules.js';
-  import GameRules from '$lib/components/GameRules.svelte';
+  // import GameRules from '$lib/components/GameRules.svelte';
   import SectionHead from '$lib/ui/SectionHeader.svelte';
 
   export let event;
@@ -24,14 +24,15 @@
   $: ids = picks.map((x) => String(x.id));
   $: idsJson = JSON.stringify(ids);
   $: snapshotsJson = JSON.stringify(
-    picks.map((x) => ({
-      id: String(x.id),
-      name: x?.name ? String(x.name) : null,
-      abbrev: x?.abbrev ? String(x.abbrev) : null,
-      logo: x?.logo ? String(x.logo) : null
-    }))
-  );
-
+  picks.map((x) => ({
+    id: String(x.id),
+    name: x?.name ? String(x.name) : null,
+    abbrev: x?.abbrev ? String(x.abbrev) : null,
+    logo: x?.logo ? String(x.logo) : null,
+    seed: x?.seed != null ? Number(x.seed) : null,
+    region: x?.region != null ? String(x.region) : null
+  }))
+);
   // Save UX
   let saving = false;
   let saveError = '';
@@ -67,13 +68,14 @@
   }
 
   $: resultsPayload = results?.payload || null;
-  $: selectedTeams =
-  (entry?.payload?.teamSnapshots?.length ? entry.payload.teamSnapshots : picks).map((t) => ({
-    id: String(t.id),
-    name: t.name,
-    abbr: t.abbrev ?? t.abbr ?? '',
-    logoUrl: t.logo ?? t.logoUrl ?? ''
-  }));
+$: selectedTeams = picks.map((t) => ({
+  id: String(t.id),
+  name: t.name,
+  abbr: t.abbrev ?? t.abbr ?? '',
+  logoUrl: t.logo ?? t.logoUrl ?? '',
+  seed: t.seed ?? null,
+  region: t.region ?? null
+}));
 </script>
 {#if locked}
   <div class="card">
@@ -90,7 +92,7 @@
       <div class="list">
         {#if entry?.payload?.teamSnapshots?.length}
           <ol>
-            {#each entry.payload.teamSnapshots as row}
+            {#each entry.payload.teamSnapshots as row (row.key)}
               <li>
                 <strong>{row?.name || row?.id}</strong>
                 {#if row?.abbrev}
@@ -101,7 +103,7 @@
           </ol>
         {:else}
           <ol>
-            {#each entry.payload.teamIds as id}
+            {#each entry.payload.teamIds as id (id.key)}
               <li><span class="muted">{id}</span></li>
             {/each}
           </ol>

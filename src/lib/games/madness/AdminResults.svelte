@@ -1,6 +1,5 @@
 <script>
   import { enhance } from '$app/forms';
-  import { fetchSeedsFromProvider, parseSeedsJson } from '$lib/games/madness/seeds.js';
   import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
 
   export let data;
@@ -21,13 +20,18 @@
   $: seedsByTeamId = payload?.seedsByTeamId || null;
   $: winsByTeamId = payload?.winsByTeamId || null;
 
-  function seedPrefill(id) {
-    const key = String(id);
-    // priority: manual published seedsByTeamId, then synced seeds
-    if (seedsByTeamId && seedsByTeamId[key] != null) return String(seedsByTeamId[key]);
-    if (syncedSeeds && syncedSeeds[key]?.seed != null) return String(syncedSeeds[key].seed);
-    return '';
-  }
+function seedPrefill(id) {
+  const key = String(id);
+
+  // priority: published/manual seedsByTeamId, then synced seeds (object OR number)
+  if (seedsByTeamId && seedsByTeamId[key] != null) return String(seedsByTeamId[key]);
+
+  const v = syncedSeeds?.[key];
+  const seedNum = Number(v?.seed ?? v);
+  if (Number.isFinite(seedNum) && seedNum > 0) return String(seedNum);
+
+  return '';
+}
 
   function winChecked(id, r) {
     const key = String(id);
@@ -35,62 +39,7 @@
   }
 </script>
 
-<div class="page-wide">
-  <div class="card">
-    <div class="section-head">
-      <h2 class="h2">Seed Sync</h2>
-      <span class="pill pill--gold">Madness</span>
-    </div>
 
-    <p class="subtle" style="margin-top:10px;">
-      This is wired now. When Selection Sunday hits, we’ll swap the provider logic and you’ll just click “Sync Seeds”.
-      You can also paste JSON manually as a backup.
-    </p>
-
-    <form
-      method="POST"
-      action="?/syncSeeds"
-      use:enhance={() => {
-        seedSyncing = true;
-        seedSyncMsg = '';
-        return async ({ result, update }) => {
-          if (result.type === 'success') {
-            await update({ reset: false });
-            seedSyncMsg = 'Seeds synced ✅';
-          } else if (result.type === 'failure') {
-            seedSyncMsg = result.data?.error || 'Seed sync failed.';
-          } else {
-            seedSyncMsg = 'Seed sync failed.';
-          }
-          seedSyncing = false;
-        };
-      }}
-    >
-      <div class="field" style="margin-top: 12px;">
-        <label class="muted" for="seedsJson">Optional manual seeds JSON</label>
-
-        <textarea
-            id="seedsJson"
-            class="input"
-            name="seedsJson"
-            rows="6"
-            placeholder={"Example: " + '{"52":{"seed":1,"region":"South"},"120":{"seed":12,"region":"East"}}'}
-            ></textarea>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn--vip" type="submit" disabled={seedSyncing}>
-          {seedSyncing ? 'Syncing…' : 'Sync Seeds'}
-        </button>
-
-        <div class="muted">
-          {#if seedSyncMsg}
-            {seedSyncMsg}
-          {/if}
-        </div>
-      </div>
-    </form>
-  </div>
 
   <div class="spacer"></div>
 
@@ -149,7 +98,6 @@
                       {/if}
                       <div>
                         <div class="teamname">{t.name || t.id}</div>
-                        <div class="muted">{t.abbrev || ''} · {t.id}</div>
                       </div>
                     </div>
                   </td>
@@ -248,7 +196,7 @@
       {/if}
     </div>
   </div>
-</div>
+
 
 <style>
   .page-wide { width: 100%; max-width: 1400px; margin: 0 auto; padding: 0 24px; box-sizing: border-box; }

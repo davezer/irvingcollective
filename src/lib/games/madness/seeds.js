@@ -1,22 +1,28 @@
 // src/lib/games/madness/seeds.js
+import BRACKET from '$lib/games/madness/data/2026_ncaa_mens_tournament_seeds.json';
+import { buildFromBracketJson } from '$lib/games/madness/bracketUtils.js';
 
 export async function fetchSeedsFromProvider() {
-  // TODO: Selection Sunday - swap in real provider.
+  const built = buildFromBracketJson(BRACKET);
+
   return {
-    seeds: {},
-    source: 'stub',
-    note: 'Seed sync not wired to live API yet.'
+    seeds: built.seeds,
+    source: 'local-json',
+    note: `Loaded seeds for ${Object.keys(built.seeds).length} teams`
   };
 }
 
-// ✅ MUST be exported with this exact name
 export function parseSeedsJson(raw) {
   try {
     const parsed = JSON.parse(raw);
 
-    // allow either:
-    // 1) { "52": { seed: 1, region: "South" }, ... }
-    // 2) { seeds: { "52": {...}, ... } }
+    // If they pasted the bracket JSON format, convert it
+    if (parsed?.regions && typeof parsed.regions === 'object' && !parsed?.seeds) {
+      const built = buildFromBracketJson(parsed);
+      return built.seeds;
+    }
+
+    // Otherwise allow old formats:
     const seedsIn =
       parsed?.seeds && typeof parsed.seeds === 'object' ? parsed.seeds : parsed;
 

@@ -36,13 +36,15 @@ export async function saveEntry({ db, event, userId, form, now, locked }) {
               id: x?.id != null ? String(x.id) : '',
               name: x?.name ? String(x.name) : null,
               abbrev: x?.abbrev ? String(x.abbrev) : null,
-              logo: x?.logo ? String(x.logo) : null
+              logo: x?.logo ? String(x.logo) : null,
+              seed: x?.seed != null && Number.isFinite(Number(x.seed)) ? Number(x.seed) : null,
+              region: x?.region ? String(x.region) : null
             }))
             .filter((x) => x.id)
             .map((x) => [x.id, x])
         );
 
-        teamSnapshots = teamIds.map((id) => map.get(id) || { id, name: null, abbrev: null, logo: null });
+        teamSnapshots = teamIds.map((id) => map.get(id) || { id, name: null, abbrev: null, logo: null, seed: null, region: null });
       }
     } catch {
       teamSnapshots = null;

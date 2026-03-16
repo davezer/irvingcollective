@@ -11,18 +11,33 @@
   let publishSaving = false;
   let publishMsg = '';
 
+  const ROUNDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+
   $: pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
   $: eventPublishedAt = event?.results_published_at || null;
 
-  const payload = results?.payload || null;
+  $: payload = results?.payload || null;
   $: syncedSeeds = payload?.seeds || null;
   $: seedsByTeamId = payload?.seedsByTeamId || null;
   $: winsByTeamId = payload?.winsByTeamId || null;
 
   function seedPrefill(id) {
     const key = String(id);
-    if (seedsByTeamId && seedsByTeamId[key] != null) return String(seedsByTeamId[key]);
-    if (syncedSeeds && syncedSeeds[key]?.seed != null) return String(syncedSeeds[key].seed);
+
+    // Prefer numeric seedsByTeamId
+    if (seedsByTeamId && seedsByTeamId[key] != null) {
+      const v = seedsByTeamId[key];
+      const n = Number(v?.seed ?? v);
+      if (Number.isFinite(n) && n > 0) return String(n);
+    }
+
+    // Fallback to rich seeds map
+    if (syncedSeeds && syncedSeeds[key] != null) {
+      const v = syncedSeeds[key];
+      const n = Number(v?.seed ?? v);
+      if (Number.isFinite(n) && n > 0) return String(n);
+    }
+
     return '';
   }
 
@@ -30,13 +45,46 @@
     const key = String(id);
     return Boolean(winsByTeamId?.[key]?.[r]);
   }
+
+  function seedForTeamId(teamId, entry) {
+    const key = String(teamId);
+
+    // 1) results payload numeric map
+    const v1 = payload?.seedsByTeamId?.[key];
+    const s1 = Number(v1?.seed ?? v1);
+    if (Number.isFinite(s1) && s1 > 0) return s1;
+
+    // 2) results payload rich map
+    const v2 = payload?.seeds?.[key];
+    const s2 = Number(v2?.seed ?? v2);
+    if (Number.isFinite(s2) && s2 > 0) return s2;
+
+    // 3) entry snapshots
+    const snaps = entry?.payload?.teamSnapshots || [];
+    const snap = snaps.find((t) => String(t?.id) === key);
+    const s3 = Number(snap?.seed ?? null);
+    if (Number.isFinite(s3) && s3 > 0) return s3;
+
+    return null;
+  }
+
+  function labelForSnapshot(s, entry) {
+    const id = String(s?.id ?? '');
+    const name = s?.abbrev || s?.name || s?.id || 'Team';
+    const seed = seedForTeamId(id, entry);
+    return seed ? `${seed} ${name}` : name;
+  }
+
+  function labelForId(id, entry) {
+    const key = String(id);
+    const seed = seedForTeamId(key, entry);
+    return seed ? `${seed} ${key}` : key;
+  }
 </script>
 
 <div class="page-wide">
   <div class="card">
-    <div class="section-head">
-      
-    </div>
+    <div class="section-head"></div>
 
     <form
       method="POST"
@@ -61,12 +109,12 @@
         <label class="muted" for="seedsJson">Optional manual seeds JSON</label>
 
         <textarea
-            id="seedsJson"
-            class="input"
-            name="seedsJson"
-            rows="6"
-            placeholder={"Example: " + '{"52":{"seed":1,"region":"South"},"120":{"seed":12,"region":"East"}}'}
-            ></textarea>
+          id="seedsJson"
+          class="input"
+          name="seedsJson"
+          rows="6"
+          placeholder={"Example: " + '{"52":{"seed":1,"region":"South"},"120":{"seed":12,"region":"East"}}'}
+        ></textarea>
       </div>
 
       <div class="actions">
@@ -88,7 +136,6 @@
   <div class="card">
     <div class="section-head">
       <h2 class="h2">Publish Results + Recompute</h2>
-      
       <span class="pill">{pickedTeams?.length || 0} picked teams</span>
     </div>
 
@@ -122,16 +169,13 @@
               <tr>
                 <th>Team</th>
                 <th style="width:110px;">Seed</th>
-                <th>R1</th>
-                <th>R2</th>
-                <th>R3</th>
-                <th>R4</th>
-                <th>R5</th>
-                <th>R6</th>
+                {#each ROUNDS as r (r)}
+                  <th>{r.toUpperCase()}</th>
+                {/each}
               </tr>
             </thead>
             <tbody>
-              {#each pickedTeams as t}
+              {#each pickedTeams as t (String(t.id))}
                 <tr>
                   <td>
                     <div class="teamcell">
@@ -140,7 +184,6 @@
                       {/if}
                       <div>
                         <div class="teamname">{t.name || t.id}</div>
-                        <div class="muted">{t.abbrev || ''} · {t.id}</div>
                       </div>
                     </div>
                   </td>
@@ -157,7 +200,7 @@
                     />
                   </td>
 
-                  {#each ['r1','r2','r3','r4','r5','r6'] as r}
+                  {#each ROUNDS as r (r)}
                     <td style="text-align:center;">
                       <input
                         type="checkbox"
@@ -186,16 +229,18 @@
       </form>
     {/if}
   </div>
+
   <div style="margin-top: 18px;">
-  <div class="section-head">
-    <h3 class="h3">Danger Zone</h3>
-    <div class="muted">Unpublishing removes all computed scores for this event.</div>
+    <div class="section-head">
+      <h3 class="h3">Danger Zone</h3>
+      <div class="muted">Unpublishing removes all computed scores for this event.</div>
+    </div>
+
+    <div class="actions" style="margin-top: 10px;">
+      <UnpublishButton publishedAt={eventPublishedAt} />
+    </div>
   </div>
 
-  <div class="actions" style="margin-top: 10px;">
-    <UnpublishButton publishedAt={eventPublishedAt} />
-  </div>
-</div>
   <div class="spacer"></div>
 
   <div class="card">
@@ -208,7 +253,7 @@
       {#if !entries?.length}
         <div class="muted">No entries yet.</div>
       {:else}
-        {#each entries as e}
+        {#each entries as e (String(e.id ?? e.user_id ?? e.display_name ?? Math.random()))}
           <div class="row">
             <div class="row-top">
               <div class="name">{e.display_name}</div>
@@ -219,14 +264,28 @@
 
             {#if e?.payload?.teamSnapshots?.length}
               <div class="chips">
-                {#each e.payload.teamSnapshots as s}
-                  <span class="chip">{s?.abbrev || s?.name || s?.id}</span>
+                {#each e.payload.teamSnapshots as s (String(s?.id))}
+                  {@const tid = String(s?.id ?? '')}
+                  {@const seed = seedForTeamId(tid, e)}
+                  <span class="chip">
+                    {#if seed}
+                      <span class="chip-seed" aria-label={"Seed " + seed}>{seed}</span>
+                    {/if}
+                    <span>{s?.abbrev || s?.name || s?.id}</span>
+                  </span>
                 {/each}
               </div>
             {:else if e?.payload?.teamIds?.length}
               <div class="chips">
-                {#each e.payload.teamIds as id}
-                  <span class="chip">{id}</span>
+                {#each e.payload.teamSnapshots as s (String(s?.id))}
+                  {@const tid = String(s?.id ?? '')}
+                  {@const seed = seedForTeamId(tid, e)}
+                  <span class="chip">
+                    {#if seed}
+                      <span class="chip-seed" aria-label={"Seed " + seed}>{seed}</span>
+                    {/if}
+                    <span>{s?.abbrev || s?.name || s?.id}</span>
+                  </span>
                 {/each}
               </div>
             {:else}
@@ -284,6 +343,22 @@
     background: rgba(0,0,0,0.25);
     font-size: 0.9rem;
   }
+
+  .chip-seed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 0.85rem;
+  line-height: 1;
+  border: 1px solid rgba(212, 175, 55, 0.35);     /* gold outline */
+  background:  rgba(212, 175, 55, 0.14);           /* gold tint */
+  color: rgba(255, 255, 255, 0.92);
+  flex: 0 0 auto;
+}
 
   .tablewrap {
     margin-top: 14px;

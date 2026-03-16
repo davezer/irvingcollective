@@ -115,11 +115,6 @@ export async function publish({ db, event, form }) {
   return { ok: true };
 }
 
-/**
- * Seed sync action:
- * - writes payload.seeds (auto-synced)
- * - DOES NOT clobber seedsByTeamId/winsByTeamId
- */
 export async function syncSeeds({ db, event, form, fetchImpl }) {
   const seedsJson = (form.get('seedsJson') || '').toString().trim();
 

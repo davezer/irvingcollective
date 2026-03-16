@@ -39,7 +39,28 @@ function seedPrefill(id) {
   }
 </script>
 
+<div class="page-wide">
+  <div class="card">
+    <div class="section-head">
+      
+    </div>
 
+
+    
+
+      <div class="actions">
+        <button class="btn btn--vip" type="submit" disabled={seedSyncing}>
+          {seedSyncing ? 'Syncing…' : 'Sync Seeds'}
+        </button>
+
+        <div class="muted">
+          {#if seedSyncMsg}
+            {seedSyncMsg}
+          {/if}
+        </div>
+      </div>
+  
+  </div>
 
   <div class="spacer"></div>
 
@@ -196,7 +217,7 @@ function seedPrefill(id) {
       {/if}
     </div>
   </div>
-
+</div>
 
 <style>
   .page-wide { width: 100%; max-width: 1400px; margin: 0 auto; padding: 0 24px; box-sizing: border-box; }

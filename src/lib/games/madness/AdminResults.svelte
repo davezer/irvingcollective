@@ -14,24 +14,17 @@
   $: pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
   $: eventPublishedAt = event?.results_published_at || null;
 
-  // If results payload already includes synced seeds, we can prefill seed inputs (optional)
   const payload = results?.payload || null;
   $: syncedSeeds = payload?.seeds || null;
   $: seedsByTeamId = payload?.seedsByTeamId || null;
   $: winsByTeamId = payload?.winsByTeamId || null;
 
-function seedPrefill(id) {
-  const key = String(id);
-
-  // priority: published/manual seedsByTeamId, then synced seeds (object OR number)
-  if (seedsByTeamId && seedsByTeamId[key] != null) return String(seedsByTeamId[key]);
-
-  const v = syncedSeeds?.[key];
-  const seedNum = Number(v?.seed ?? v);
-  if (Number.isFinite(seedNum) && seedNum > 0) return String(seedNum);
-
-  return '';
-}
+  function seedPrefill(id) {
+    const key = String(id);
+    if (seedsByTeamId && seedsByTeamId[key] != null) return String(seedsByTeamId[key]);
+    if (syncedSeeds && syncedSeeds[key]?.seed != null) return String(syncedSeeds[key].seed);
+    return '';
+  }
 
   function winChecked(id, r) {
     const key = String(id);
@@ -45,8 +38,36 @@ function seedPrefill(id) {
       
     </div>
 
+    <form
+      method="POST"
+      action="?/syncSeeds"
+      use:enhance={() => {
+        seedSyncing = true;
+        seedSyncMsg = '';
+        return async ({ result, update }) => {
+          if (result.type === 'success') {
+            await update({ reset: false });
+            seedSyncMsg = 'Seeds synced ✅';
+          } else if (result.type === 'failure') {
+            seedSyncMsg = result.data?.error || 'Seed sync failed.';
+          } else {
+            seedSyncMsg = 'Seed sync failed.';
+          }
+          seedSyncing = false;
+        };
+      }}
+    >
+      <div class="field" style="margin-top: 12px;">
+        <label class="muted" for="seedsJson">Optional manual seeds JSON</label>
 
-    
+        <textarea
+            id="seedsJson"
+            class="input"
+            name="seedsJson"
+            rows="6"
+            placeholder={"Example: " + '{"52":{"seed":1,"region":"South"},"120":{"seed":12,"region":"East"}}'}
+            ></textarea>
+      </div>
 
       <div class="actions">
         <button class="btn btn--vip" type="submit" disabled={seedSyncing}>
@@ -59,7 +80,7 @@ function seedPrefill(id) {
           {/if}
         </div>
       </div>
-  
+    </form>
   </div>
 
   <div class="spacer"></div>
@@ -119,6 +140,7 @@ function seedPrefill(id) {
                       {/if}
                       <div>
                         <div class="teamname">{t.name || t.id}</div>
+                        <div class="muted">{t.abbrev || ''} · {t.id}</div>
                       </div>
                     </div>
                   </td>

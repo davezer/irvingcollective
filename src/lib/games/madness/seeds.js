@@ -6,12 +6,13 @@ export async function fetchSeedsFromProvider() {
   const built = buildFromBracketJson(BRACKET);
 
   return {
-    seeds: built.seeds,
+    seeds: built.seeds, // { [teamId]: { seed, region } }
     source: 'local-json',
     note: `Loaded seeds for ${Object.keys(built.seeds).length} teams`
   };
 }
 
+// ✅ MUST be exported with this exact name
 export function parseSeedsJson(raw) {
   try {
     const parsed = JSON.parse(raw);
@@ -22,7 +23,7 @@ export function parseSeedsJson(raw) {
       return built.seeds;
     }
 
-    // Otherwise allow old formats:
+    // Otherwise allow old formats
     const seedsIn =
       parsed?.seeds && typeof parsed.seeds === 'object' ? parsed.seeds : parsed;
 

@@ -5,7 +5,7 @@ import { buildFromBracketJson } from '$lib/games/madness/bracketUtils.js';
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
 const provider = 'local';
-const cacheKey = 'march-2026-bracket:v2';
+const cacheKey = 'march-2026-bracket:v3';
 
 export async function getMarchTeamOptionsLocal({ db, eventId }) {
   const cached = await getOptionsCache({

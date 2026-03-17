@@ -13,13 +13,13 @@
 
   const ROUNDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
 
-  $: pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
-  $: eventPublishedAt = event?.results_published_at || null;
+  const pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
+  const eventPublishedAt = event?.results_published_at || null;
 
-  $: payload = results?.payload || null;
-  $: syncedSeeds = payload?.seeds || null;
-  $: seedsByTeamId = payload?.seedsByTeamId || null;
-  $: winsByTeamId = payload?.winsByTeamId || null;
+ const payload = results?.payload || null;
+ const syncedSeeds = payload?.seeds || null;
+ const seedsByTeamId = payload?.seedsByTeamId || null;
+ const winsByTeamId = payload?.winsByTeamId || null;
 
   function seedPrefill(id) {
     const key = String(id);

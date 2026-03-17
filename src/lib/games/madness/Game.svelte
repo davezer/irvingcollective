@@ -1,9 +1,9 @@
 <script>
   import { enhance } from '$app/forms';
+  import { resolve } from '$app/paths';
   import MarchTeamPicker from '$lib/components/MarchTeamPicker.svelte';
   import RoundTracker from './RoundTracker.svelte';
   import { MADNESS_RULES } from './rules.js';
-  // import GameRules from '$lib/components/GameRules.svelte';
   import SectionHead from '$lib/ui/SectionHeader.svelte';
 
   export let event;
@@ -11,38 +11,33 @@
   export let entry = null;
   export let results;
 
-  // options + load state from parent route
   export let options = [];
   export let loading = false;
   export let loadError = '';
   export let onRetryOptions = () => {};
 
-  // March selections
   let picks = [];
 
-  // Derived payload
   $: ids = picks.map((x) => String(x.id));
   $: idsJson = JSON.stringify(ids);
   $: snapshotsJson = JSON.stringify(
-  picks.map((x) => ({
-    id: String(x.id),
-    name: x?.name ? String(x.name) : null,
-    abbrev: x?.abbrev ? String(x.abbrev) : null,
-    logo: x?.logo ? String(x.logo) : null,
-    seed: x?.seed != null ? Number(x.seed) : null,
-    region: x?.region != null ? String(x.region) : null
-  }))
-);
-  // Save UX
+    picks.map((x) => ({
+      id: String(x.id),
+      name: x?.name ? String(x.name) : null,
+      abbrev: x?.abbrev ? String(x.abbrev) : null,
+      logo: x?.logo ? String(x.logo) : null,
+      seed: x?.seed != null ? Number(x.seed) : null,
+      region: x?.region != null ? String(x.region) : null
+    }))
+  );
+
   let saving = false;
   let saveError = '';
   let savedPulse = false;
 
-  // Dirty tracking
   let lastSavedIds = [];
   $: dirty = !locked && JSON.stringify(ids) !== JSON.stringify(lastSavedIds);
 
-  // Hydration
   let hydratedEntryRowId = null;
   let pendingIds = [];
 
@@ -52,7 +47,6 @@
     const serverIds = (entry?.payload?.teamIds || []).map(String).slice(0, 4);
     lastSavedIds = serverIds;
 
-    // resolve after options arrive
     pendingIds = serverIds;
     if (options.length) {
       const map = new Map(options.map((o) => [String(o.id), o]));
@@ -67,38 +61,46 @@
     pendingIds = [];
   }
 
-  $: resultsPayload = results?.payload || null;
-$: selectedTeams =
-  locked && entry?.payload?.teamSnapshots?.length
-    ? entry.payload.teamSnapshots.map(teamFromSnapshot).filter((t) => t.id).slice(0, 4)
-    : picks
-        .filter((t) => t && t.id != null)
-        .map((t) => ({
-          id: String(t.id),
-          name: t.name,
-          abbr: t.abbrev ?? t.abbr ?? '',
-          logoUrl: t.logo ?? t.logoUrl ?? '',
-          seed: t.seed ?? null,
-          region: t.region ?? null
-        }));
+  const resultsPayload = results?.payload || null;
 
-function teamFromSnapshot(s) {
-  const id = String(s?.id ?? '');
-  return {
-    id,
-    name: s?.name || id,
-    abbr: s?.abbrev ?? s?.abbr ?? '',
-    logoUrl: s?.logo ?? s?.logoUrl ?? '',
-    seed: s?.seed ?? null,
-    region: s?.region ?? null
-  };
-}
+  $: selectedTeams =
+    locked && entry?.payload?.teamSnapshots?.length
+      ? entry.payload.teamSnapshots.map(teamFromSnapshot).filter((t) => t.id).slice(0, 4)
+      : picks
+          .filter((t) => t && t.id != null)
+          .map((t) => ({
+            id: String(t.id),
+            name: t.name,
+            abbr: t.abbrev ?? t.abbr ?? '',
+            logoUrl: t.logo ?? t.logoUrl ?? '',
+            seed: t.seed ?? null,
+            region: t.region ?? null
+          }));
+
+  function teamFromSnapshot(s) {
+    const id = String(s?.id ?? '');
+    return {
+      id,
+      name: s?.name || id,
+      abbr: s?.abbrev ?? s?.abbr ?? '',
+      logoUrl: s?.logo ?? s?.logoUrl ?? '',
+      seed: s?.seed ?? null,
+      region: s?.region ?? null
+    };
+  }
 </script>
+
 {#if locked}
   <div class="card">
     <div class="section-head">
       <h2 class="h2">Finalized Entry</h2>
-      <span class="pill pill--red">No edits</span>
+
+      <div class="head-actions">
+        <a class="btn btn--ghost" href={resolve('/games/[slug]/picks', { slug: event.slug })}>
+          View all league picks
+        </a>
+        <span class="pill pill--red">No edits</span>
+      </div>
     </div>
 
     {#if selectedTeams?.length}
@@ -106,7 +108,6 @@ function teamFromSnapshot(s) {
         Your 4 teams are locked in.
       </p>
 
-      <!-- ✅ same nice board as unlocked -->
       <RoundTracker {selectedTeams} {resultsPayload} dense={false} />
     {:else}
       <p class="subtle" style="margin-top: 10px;">You didn’t submit an entry for this event.</p>
@@ -217,13 +218,11 @@ function teamFromSnapshot(s) {
               Make changes, then save.
             {/if}
           </div>
-          
         </MarchTeamPicker>
 
         <input type="hidden" name="teamIds" value={idsJson} />
         <input type="hidden" name="teamSnapshots" value={snapshotsJson} />
         <RoundTracker {selectedTeams} {resultsPayload} />
-        
       </div>
     </div>
   </form>
@@ -231,6 +230,7 @@ function teamFromSnapshot(s) {
 
 <style>
   .spacer-sm { height: 10px; }
+
   .actions {
     display: flex;
     align-items: center;
@@ -238,6 +238,14 @@ function teamFromSnapshot(s) {
     margin-top: 16px;
     flex-wrap: wrap;
   }
+
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
   .list {
     margin-top: 12px;
     padding: 12px;
@@ -245,6 +253,7 @@ function teamFromSnapshot(s) {
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.25);
   }
+
   ol { margin: 0; padding-left: 22px; }
   li { margin: 6px 0; }
 
@@ -255,62 +264,8 @@ function teamFromSnapshot(s) {
     padding: 0 24px;
     box-sizing: border-box;
   }
+
   @media (max-width: 640px) {
     .page-wide { padding: 0 14px; }
   }
-.sectionHead {
-  flex-wrap: wrap;
-  justify-self: left;
-  padding-bottom: 2px;
-}
-
-/* --- Madness mobile header fix --- */
-.section-head--stack{
-  display: grid;
-  gap: 10px;
-  align-items: start;
-}
-
-.section-head__row{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: nowrap;
-}
-
-/* prevent the Rules button from doing weird flex things */
-.rules-wrap{
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-/* tighten the count pill so it doesn't look like a giant floating bubble */
-.pill--tight{
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-/* On really small screens, keep row but allow it to wrap cleanly */
-@media (max-width: 420px){
-  .section-head__row{
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-  .pill--tight{
-    margin-left: auto;
-  }
-}
-
-/* your current .sectionHead was fighting layout; make it neutral */
-.sectionHead{
-  padding: 0;
-  flex: 0 0 auto;
-}
-/* The panel/card that contains the list */
-
 </style>

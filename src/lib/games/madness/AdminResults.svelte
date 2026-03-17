@@ -67,19 +67,6 @@
 
     return null;
   }
-
-  function labelForSnapshot(s, entry) {
-    const id = String(s?.id ?? '');
-    const name = s?.abbrev || s?.name || s?.id || 'Team';
-    const seed = seedForTeamId(id, entry);
-    return seed ? `${seed} ${name}` : name;
-  }
-
-  function labelForId(id, entry) {
-    const key = String(id);
-    const seed = seedForTeamId(key, entry);
-    return seed ? `${seed} ${key}` : key;
-  }
 </script>
 
 <div class="page-wide">
@@ -253,7 +240,7 @@
       {#if !entries?.length}
         <div class="muted">No entries yet.</div>
       {:else}
-        {#each entries as e (String(e.id ?? e.user_id ?? e.display_name ?? Math.random()))}
+        {#each entries as e (String(e.id))}
           <div class="row">
             <div class="row-top">
               <div class="name">{e.display_name}</div>
@@ -277,14 +264,14 @@
               </div>
             {:else if e?.payload?.teamIds?.length}
               <div class="chips">
-                {#each e.payload.teamSnapshots as s (String(s?.id))}
-                  {@const tid = String(s?.id ?? '')}
+                {#each e.payload.teamIds as id (String(id))}
+                  {@const tid = String(id)}
                   {@const seed = seedForTeamId(tid, e)}
                   <span class="chip">
                     {#if seed}
                       <span class="chip-seed" aria-label={"Seed " + seed}>{seed}</span>
                     {/if}
-                    <span>{s?.abbrev || s?.name || s?.id}</span>
+                    <span>{tid}</span>
                   </span>
                 {/each}
               </div>

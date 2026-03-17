@@ -68,14 +68,31 @@
   }
 
   $: resultsPayload = results?.payload || null;
-$: selectedTeams = picks.map((t) => ({
-  id: String(t.id),
-  name: t.name,
-  abbr: t.abbrev ?? t.abbr ?? '',
-  logoUrl: t.logo ?? t.logoUrl ?? '',
-  seed: t.seed ?? null,
-  region: t.region ?? null
-}));
+$: selectedTeams =
+  locked && entry?.payload?.teamSnapshots?.length
+    ? entry.payload.teamSnapshots.map(teamFromSnapshot).filter((t) => t.id).slice(0, 4)
+    : picks
+        .filter((t) => t && t.id != null)
+        .map((t) => ({
+          id: String(t.id),
+          name: t.name,
+          abbr: t.abbrev ?? t.abbr ?? '',
+          logoUrl: t.logo ?? t.logoUrl ?? '',
+          seed: t.seed ?? null,
+          region: t.region ?? null
+        }));
+
+function teamFromSnapshot(s) {
+  const id = String(s?.id ?? '');
+  return {
+    id,
+    name: s?.name || id,
+    abbr: s?.abbrev ?? s?.abbr ?? '',
+    logoUrl: s?.logo ?? s?.logoUrl ?? '',
+    seed: s?.seed ?? null,
+    region: s?.region ?? null
+  };
+}
 </script>
 {#if locked}
   <div class="card">
@@ -84,31 +101,13 @@ $: selectedTeams = picks.map((t) => ({
       <span class="pill pill--red">No edits</span>
     </div>
 
-    {#if entry?.payload?.teamIds?.length}
+    {#if selectedTeams?.length}
       <p class="subtle" style="margin-top: 6px;">
         Your 4 teams are locked in.
       </p>
 
-      <div class="list">
-        {#if entry?.payload?.teamSnapshots?.length}
-          <ol>
-            {#each entry.payload.teamSnapshots as row (row.key)}
-              <li>
-                <strong>{row?.name || row?.id}</strong>
-                {#if row?.abbrev}
-                  <span class="muted" style="margin-left: 8px;">({row.abbrev})</span>
-                {/if}
-              </li>
-            {/each}
-          </ol>
-        {:else}
-          <ol>
-            {#each entry.payload.teamIds as id (id.key)}
-              <li><span class="muted">{id}</span></li>
-            {/each}
-          </ol>
-        {/if}
-      </div>
+      <!-- ✅ same nice board as unlocked -->
+      <RoundTracker {selectedTeams} {resultsPayload} dense={false} />
     {:else}
       <p class="subtle" style="margin-top: 10px;">You didn’t submit an entry for this event.</p>
     {/if}

@@ -564,7 +564,7 @@
 
             <div class="entry-summary__right">
               <span class="pill pill--gold">{entry.selectedTeams.length}/4</span>
-              <span class="panel-collapse__hint">Tap to expand</span>
+              <span class="panel-collapse__hint">Tap to collapse</span>
             </div>
           </summary>
 

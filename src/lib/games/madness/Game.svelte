@@ -21,15 +21,16 @@
   $: ids = picks.map((x) => String(x.id));
   $: idsJson = JSON.stringify(ids);
   $: snapshotsJson = JSON.stringify(
-    picks.map((x) => ({
-      id: String(x.id),
-      name: x?.name ? String(x.name) : null,
-      abbrev: x?.abbrev ? String(x.abbrev) : null,
-      logo: x?.logo ? String(x.logo) : null,
-      seed: x?.seed != null ? Number(x.seed) : null,
-      region: x?.region != null ? String(x.region) : null
-    }))
-  );
+  picks.map((x) => ({
+    id: String(x.id),
+    name: x?.name ? String(x.name) : null,
+    abbrev: x?.abbrev ? String(x.abbrev) : null,
+    logo: x?.logo ? String(x.logo) : (x?.logoUrl ? String(x.logoUrl) : null),
+    logoUrl: x?.logoUrl ? String(x.logoUrl) : (x?.logo ? String(x.logo) : null),
+    seed: x?.seed != null ? Number(x.seed) : null,
+    region: x?.region != null ? String(x.region) : null
+  }))
+);
 
   let saving = false;
   let saveError = '';
@@ -100,7 +101,11 @@
           View all league picks
         </a>
         <span class="pill pill--red">No edits</span>
+        <div class="rules-wrap">
+              <SectionHead rules={MADNESS_RULES} />
+            </div>
       </div>
+      
     </div>
 
     {#if selectedTeams?.length}

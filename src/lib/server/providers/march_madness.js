@@ -5,7 +5,9 @@ const MAX_AGE_SECONDS = 60 * 60 * 24; // 24 hours
 
 export async function getMarchTeamOptions({ db, eventId, fetchImpl }) {
   const provider = 'espn';
-  const cacheKey = 'march-teams:mens:v2'; // ✅ bump version to bust old 50-team cache
+  const cacheKey = 'march-teams:mens:v4'; // ✅ bump version to bust old 50-team cache
+ 
+  
 
   const cached = await getOptionsCache({
     db,

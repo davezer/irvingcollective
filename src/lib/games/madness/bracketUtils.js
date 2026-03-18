@@ -9,17 +9,13 @@ export function slugify(s) {
     .replace(/(^-|-$)/g, '');
 }
 
-/**
- * Stable team id: "mm26:<slug>"
- * Example: "mm26:miami-fl"
- */
 export function makeTeamId(name) {
   return `mm26:${slugify(name)}`;
 }
 
 /**
  * Returns:
- *  - options: [{ id, name, region, seed }]
+ *  - options: [{ id, name, region, seed, logoUrl, logo }]
  *  - seeds:   { [id]: { seed, region } }
  */
 export function buildFromBracketJson(bracketJson) {
@@ -33,32 +29,57 @@ export function buildFromBracketJson(bracketJson) {
       const seed = Number(slot?.seed);
       if (!Number.isFinite(seed) || seed <= 0) continue;
 
-      // Normal team slot
       if (slot?.team) {
         const name = String(slot.team).trim();
         if (!name) continue;
 
+        const logoUrl = String(slot?.logoUrl || '').trim();
         const id = makeTeamId(name);
-        outOptions.push({ id, name, region: regionName, seed });
+
+        outOptions.push({
+          id,
+          name,
+          region: regionName,
+          seed,
+          logoUrl,
+          logo: logoUrl
+        });
+
         outSeeds[id] = { seed, region: regionName };
         continue;
       }
 
-      // Play-in slot: create an entry for each team
       if (Array.isArray(slot?.play_in)) {
-        for (const t of slot.play_in) {
-          const name = String(t).trim();
+        for (const item of slot.play_in) {
+          let name = '';
+          let logoUrl = '';
+
+          if (typeof item === 'string') {
+            name = item.trim();
+          } else if (item && typeof item === 'object') {
+            name = String(item.team || '').trim();
+            logoUrl = String(item.logoUrl || '').trim();
+          }
+
           if (!name) continue;
 
           const id = makeTeamId(name);
-          outOptions.push({ id, name, region: regionName, seed });
+
+          outOptions.push({
+            id,
+            name,
+            region: regionName,
+            seed,
+            logoUrl,
+            logo: logoUrl
+          });
+
           outSeeds[id] = { seed, region: regionName };
         }
       }
     }
   }
 
-  // de-dupe by id
   const seen = new Set();
   const options = outOptions.filter((o) => {
     if (!o.id || !o.name) return false;

@@ -96,7 +96,7 @@
     if (wc === 3) return 'Elite 8';
     if (wc === 2) return 'Sweet 16';
     if (wc === 1) return 'Round of 32';
-    if (completedRoundIndex < 0) return 'Awaiting tip';
+    if (completedRoundIndex < 0) return 'Awaiting tip off';
     if (teamStatus(team) === 'eliminated') return 'Out';
     return 'Round of 64';
   }
@@ -168,7 +168,7 @@
       return String(a.team?.name || '').localeCompare(String(b.team?.name || ''));
     });
 
-  const mostPickedTeams = teamStats.slice(0, 8);
+  const mostPickedTeams = teamStats.slice(0, 3);
 
   const highestSeedPicked = [...teamStats]
     .filter((t) => Number.isFinite(t.seed))
@@ -288,7 +288,6 @@
 
     if (entry.alive === 4) badges.push({ label: 'All 4 alive', tone: 'green' });
     if (entry.alive === 0 && completedRoundIndex >= 0) badges.push({ label: 'Busted', tone: 'red' });
-    if (entry.loneWolves?.length) badges.push({ label: `${entry.loneWolves.length} lone wolf`, tone: 'gold' });
     if (boldestEntry && entry.user_id === boldestEntry.user_id) badges.push({ label: 'Boldest card', tone: 'gold' });
     if (chalkiestEntry && entry.user_id === chalkiestEntry.user_id) badges.push({ label: 'Chalk king', tone: 'muted' });
     if (mostAliveEntry && entry.user_id === mostAliveEntry.user_id) badges.push({ label: 'Most alive', tone: 'green' });
@@ -297,7 +296,7 @@
       0,
       ...((entry.selectedTeams || []).map((t) => Number(seedOf(t) || 0)))
     );
-    if (highestSeedOnCard >= 11) {
+    if (highestSeedOnCard >= 10) {
       badges.push({ label: `Longshot ${highestSeedOnCard}`, tone: 'gold' });
     }
 
@@ -349,7 +348,7 @@
     <div class="warroom__meta">
       <span class="pill">Lock time: {prettyLock(event?.lock_at)}</span>
       <span class="pill">Current stage: {completedRoundLabel}</span>
-      <span class="pill">{teamStats.length} unique picked teams</span>
+      <!-- <span class="pill">{teamStats.length} unique picked teams</span> -->
     </div>
   </div>
 </div>
@@ -410,7 +409,7 @@
         <div class="stat-label">Most alive</div>
         {#if mostAliveEntry}
           <div class="stat-value">{mostAliveEntry.display_name}</div>
-          <div class="stat-sub">{mostAliveEntry.alive} teams still alive</div>
+          <div class="stat-sub">{mostAliveEntry.alive} alive</div>
         {:else}
           <div class="stat-value">—</div>
         {/if}
@@ -454,7 +453,7 @@
       <div class="panel card">
         <div class="panel-head">
           <h2 class="h2">Most Picked Teams</h2>
-          <span class="pill pill--gold">{teamStats.length} unique</span>
+          <span class="pill pill--gold">{teamStats.length} unique picked teams</span>
         </div>
 
         <div class="popular-list">
@@ -514,19 +513,22 @@
 
         <div class="panel-divider"></div>
 
-        <div class="panel-head panel-head--mini">
-          <h3 class="h3">Round Ownership</h3>
-        </div>
+        <details class="panel-collapse">
+            <summary class="panel-collapse__summary">
+                <span class="h3">Round Ownership</span>
+                <span class="panel-collapse__hint">Tap to expand</span>
+            </summary>
 
-        <div class="ownership-grid">
-          {#each ownershipByRound as row (row.key)}
-            <div class="ownership-card">
-              <div class="ownership-label">{row.long}</div>
-              <div class="ownership-value">{row.count}</div>
-              <div class="ownership-sub">picked teams reached this stage</div>
+            <div class="ownership-grid">
+                {#each ownershipByRound as row (row.key)}
+                <div class="ownership-card">
+                    <div class="ownership-label">{row.long}</div>
+                    <div class="ownership-value">{row.count}</div>
+                    <div class="ownership-sub">picked teams reached this stage</div>
+                </div>
+                {/each}
             </div>
-          {/each}
-        </div>
+            </details>
       </div>
     </section>
 
@@ -562,7 +564,7 @@
 
             <div class="entry-summary__right">
               <span class="pill pill--gold">{entry.selectedTeams.length}/4</span>
-              <span class="entry-toggle">Tap to expand</span>
+              <span class="panel-collapse__hint">Tap to expand</span>
             </div>
           </summary>
 
@@ -596,23 +598,7 @@
                 </div>
               </div>
 
-              <div class="story-chip">
-                <div class="story-chip__title">Lone wolves</div>
-                <div class="story-chip__sub">
-                  {#if entry.loneWolves?.length}
-                    {entry.loneWolves.map((t) => fmtTeamName(t)).join(', ')}
-                  {:else}
-                    None
-                  {/if}
-                </div>
-              </div>
-
-              <div class="story-chip">
-                <div class="story-chip__title">Card status</div>
-                <div class="story-chip__sub">
-                  {entry.alive} alive • {entry.eliminated} out • {entry.teamPts} team pts
-                </div>
-              </div>
+                        
             </div>
 
             <div class="team-strip">
@@ -1100,7 +1086,7 @@
 
   @media (max-width: 640px) {
     .page-wide {
-      padding: 0 12px 18px;
+      padding: 0 12px 0px;
     }
 
     .warroom {
@@ -1139,7 +1125,7 @@
 
     .warroom__actions .btn,
     .warroom__actions .pill {
-      min-height: 36px;
+      min-height: 18px;
     }
 
     .warroom__meta {
@@ -1155,33 +1141,45 @@
       box-sizing: border-box;
     }
 
-    .stats-grid {
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
+.stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
 
-    .stat-card,
-    .ownership-card {
-      padding: 12px;
-      border-radius: 16px;
-    }
+.stat-card,
+.ownership-card {
+  padding: 10px;
+  border-radius: 14px;
+}
+.stat-value,
+.ownership-value {
+  font-size: 0.96rem;
+  line-height: 1.1;
+}
+.stat-sub,
+.ownership-sub,
+.popular-sub,
+.entry-meta,
+.story-chip__sub,
+.team-chip__meta,
+.empty-copy {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
 
-    .stat-value,
-    .ownership-value {
-      font-size: 1.02rem;
-    }
+.stat-label,
+.ownership-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+}
 
-    .stat-sub,
-    .ownership-sub,
-    .popular-sub,
-    .entry-meta,
-    .story-chip__sub,
-    .team-chip__meta,
-    .empty-copy {
-      font-size: 0.88rem;
-      line-height: 1.32;
-    }
+.stat-card {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
     .summary-panels {
       gap: 12px;
@@ -1387,5 +1385,14 @@
     .entry-meta {
       font-size: 0.8rem;
     }
+
+    .stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-card {
+  min-height: 88px;
+}
   }
 </style>

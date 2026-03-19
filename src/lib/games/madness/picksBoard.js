@@ -462,7 +462,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
       return String(a.display_name || '').localeCompare(String(b.display_name || ''));
     });
 
-  const mostPickedTeams = teamStats.slice(0, 3);
+  const mostPickedTeams = teamStats.slice(0, 5);
 
   const highestSeedPicked = [...teamStats]
     .filter((t) => Number.isFinite(t.seed))

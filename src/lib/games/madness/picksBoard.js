@@ -159,9 +159,10 @@ function eliminatedCount(teams) {
     const wc = winsCount(team);
     const alive = status === 'alive' || status === 'champion' || (completedRoundIndex < 0 && !isManuallyEliminated(team));
     const remainingRounds = alive ? Math.max(0, ROUNDS.length - wc) : 0;
-    const future = alive
-      ? ROUNDS.slice(wc).reduce((sum, r) => sum + seed * r.mult, 0)
-      : 0;
+    const remainingPotential = ROUNDS.slice(wc).reduce((sum, r) => sum + seed * r.mult, 0);
+
+    const future = alive ? remainingPotential : 0;
+    const lostFuture = alive ? 0 : remainingPotential;
     const maxTotal = current + future;
 
     const finalFourUpside = alive
@@ -178,7 +179,7 @@ function eliminatedCount(teams) {
       alive,
       remainingRounds,
       titleUpside,
-      finalFourUpside
+      finalFourUpside,lostFuture
     };
   }
 
@@ -213,45 +214,45 @@ function eliminatedCount(teams) {
 
   const teamStatsById = new Map(teamStats.map((row) => [row.id, row]));
 
-  function buildFuturePoints(entry) {
-    const teams = entry?.selectedTeams || [];
-    const items = teams.map((team) => {
-      const calc = futurePointsForTeam(team);
-      return {
-        id: teamIdOf(team),
-        team,
-        seed: seedOf(team),
-        status: teamStatus(team),
-        stage: stageLabel(team),
-        wins: winsCount(team),
-        current: calc.current,
-        future: calc.future,
-        maxTotal: calc.maxTotal,
-        alive: calc.alive,
-        remainingRounds: calc.remainingRounds,
-        titleUpside: calc.titleUpside,
-        finalFourUpside: calc.finalFourUpside
-      };
-    });
-
-    const maxLeft = items.reduce((sum, item) => sum + item.future, 0);
-    const aliveValue = items.filter((item) => item.alive).reduce((sum, item) => sum + item.future, 0);
-    const deadValueLost = items.filter((item) => !item.alive).reduce((sum, item) => sum + item.future, 0);
-    const titleEquity = items.reduce((sum, item) => sum + item.titleUpside, 0);
-    const finalFourEquity = items.reduce((sum, item) => sum + item.finalFourUpside, 0);
-    const aliveTeams = items.filter((item) => item.alive).length;
-
+function buildFuturePoints(entry) {
+  const teams = entry?.selectedTeams || [];
+  const items = teams.map((team) => {
+    const calc = futurePointsForTeam(team);
     return {
-      items,
-      maxLeft,
-      aliveValue,
-      deadValueLost,
-      titleEquity,
-      finalFourEquity,
-      aliveTeams
+      id: teamIdOf(team),
+      team,
+      seed: seedOf(team),
+      status: teamStatus(team),
+      stage: stageLabel(team),
+      wins: winsCount(team),
+      current: calc.current,
+      future: calc.future,
+      lostFuture: calc.lostFuture || 0,
+      maxTotal: calc.maxTotal,
+      alive: calc.alive,
+      remainingRounds: calc.remainingRounds,
+      titleUpside: calc.titleUpside,
+      finalFourUpside: calc.finalFourUpside
     };
-  }
+  });
 
+  const maxLeft = items.reduce((sum, item) => sum + item.future, 0);
+  const aliveValue = items.filter((item) => item.alive).reduce((sum, item) => sum + item.future, 0);
+  const deadValueLost = items.reduce((sum, item) => sum + (item.lostFuture || 0), 0);
+  const titleEquity = items.reduce((sum, item) => sum + item.titleUpside, 0);
+  const finalFourEquity = items.reduce((sum, item) => sum + item.finalFourUpside, 0);
+  const aliveTeams = items.filter((item) => item.alive).length;
+
+  return {
+    items,
+    maxLeft,
+    aliveValue,
+    deadValueLost,
+    titleEquity,
+    finalFourEquity,
+    aliveTeams
+  };
+}
   function buildFatePath(entry) {
     const teams = entry?.selectedTeams || [];
     const futureItems = teams.map((team) => {

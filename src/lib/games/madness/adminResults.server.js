@@ -74,6 +74,9 @@ export async function publish({ db, event, form }) {
 
   const seedsByTeamId = {};
   const winsByTeamId = {};
+  const currentResults = await getResultsForEvent(db, event.id);
+  const currentPayload = currentResults?.payload && typeof currentResults.payload === 'object' ? currentResults.payload : {};
+  const eliminatedByTeamId = { ...(currentPayload.eliminatedByTeamId || {}) };
 
   for (const id of ids) {
     const seedRaw = String(form.get(`seed_${id}`) || '').trim();
@@ -87,6 +90,8 @@ export async function publish({ db, event, form }) {
     }
 
     seedsByTeamId[id] = seed;
+
+    delete eliminatedByTeamId[id];
 
     winsByTeamId[id] = {
       r1: form.get(`win_${id}_r1`) === 'on',
@@ -108,6 +113,7 @@ export async function publish({ db, event, form }) {
     patch: {
       seedsByTeamId,
       winsByTeamId,
+      eliminatedByTeamId,
       publishedAt: now // optional: keep inside payload if you like
     }
   });
@@ -156,4 +162,33 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
   });
 
   return { ok: true, seedCount: Object.keys(seedsByTeamId).length, source };
+}
+
+
+export async function toggleEliminated({ db, event, form }) {
+  const teamId = String(form.get('teamId') || '').trim();
+  if (!teamId) return fail(400, { ok: false, error: 'Missing teamId.' });
+
+  const currentResults = await getResultsForEvent(db, event.id);
+  const currentPayload = currentResults?.payload && typeof currentResults.payload === 'object' ? currentResults.payload : {};
+  const eliminatedByTeamId = { ...(currentPayload.eliminatedByTeamId || {}) };
+
+  const nextStateRaw = String(form.get('nextState') || '').trim().toLowerCase();
+  const shouldEliminate = nextStateRaw ? nextStateRaw === 'out' : !Boolean(eliminatedByTeamId[teamId]);
+
+  if (shouldEliminate) eliminatedByTeamId[teamId] = true;
+  else delete eliminatedByTeamId[teamId];
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await mergeResultsPayload({
+    db,
+    eventId: event.id,
+    now,
+    patch: {
+      eliminatedByTeamId
+    }
+  });
+
+  return { ok: true, teamId, status: shouldEliminate ? 'out' : 'alive' };
 }

@@ -17,6 +17,7 @@
 
   const seedsByTeamId = resultsPayload?.seedsByTeamId || {};
   const winsByTeamId = resultsPayload?.winsByTeamId || {};
+  const eliminatedByTeamId = resultsPayload?.eliminatedByTeamId || {};
 
   function teamIdOf(t) {
     return String(t?.id ?? t?.teamId ?? '');
@@ -73,6 +74,7 @@
   function teamStatus(teamId) {
     const wc = winsCount(teamId);
 
+    if (eliminatedByTeamId?.[teamId]) return 'eliminated';
     if (completedIdx < 0) return 'pending';
     if (wc === 6) return 'champion';
     if (wc < completedIdx + 1) return 'eliminated';
@@ -87,12 +89,15 @@
     if (wc === 3) return 'Elite 8';
     if (wc === 2) return 'Sweet 16';
     if (wc === 1) return 'Round of 32';
+    if (teamStatus(teamId) === 'eliminated') return 'Out';
     if (completedIdx < 0) return 'Awaiting tip';
-    return teamStatus(teamId) === 'eliminated' ? 'Out' : 'Round of 64';
+    return 'Round of 64';
   }
 
   const hasAnyResultsData =
-    Object.keys(seedsByTeamId).length > 0 || Object.keys(winsByTeamId).length > 0;
+    Object.keys(seedsByTeamId).length > 0 ||
+    Object.keys(winsByTeamId).length > 0 ||
+    Object.keys(eliminatedByTeamId).length > 0;
 </script>
 
 <div class={"rt-card " + (dense ? "rt-dense" : "")}>
@@ -193,8 +198,6 @@
 </div>
 
 <style>
-
-
   .rt-card {
     border: 1px solid rgba(255,255,255,0.10);
     background: rgba(0,0,0,0.22);

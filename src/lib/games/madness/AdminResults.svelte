@@ -10,28 +10,28 @@
   let seedSyncMsg = '';
   let publishSaving = false;
   let publishMsg = '';
+  let toggleMsg = '';
 
   const ROUNDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
 
   const pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
   const eventPublishedAt = event?.results_published_at || null;
 
- const payload = results?.payload || null;
- const syncedSeeds = payload?.seeds || null;
- const seedsByTeamId = payload?.seedsByTeamId || null;
- const winsByTeamId = payload?.winsByTeamId || null;
+  const payload = results?.payload || null;
+  const syncedSeeds = payload?.seeds || null;
+  const seedsByTeamId = payload?.seedsByTeamId || null;
+  const winsByTeamId = payload?.winsByTeamId || null;
+  const eliminatedByTeamId = payload?.eliminatedByTeamId || {};
 
   function seedPrefill(id) {
     const key = String(id);
 
-    // Prefer numeric seedsByTeamId
     if (seedsByTeamId && seedsByTeamId[key] != null) {
       const v = seedsByTeamId[key];
       const n = Number(v?.seed ?? v);
       if (Number.isFinite(n) && n > 0) return String(n);
     }
 
-    // Fallback to rich seeds map
     if (syncedSeeds && syncedSeeds[key] != null) {
       const v = syncedSeeds[key];
       const n = Number(v?.seed ?? v);
@@ -49,17 +49,14 @@
   function seedForTeamId(teamId, entry) {
     const key = String(teamId);
 
-    // 1) results payload numeric map
     const v1 = payload?.seedsByTeamId?.[key];
     const s1 = Number(v1?.seed ?? v1);
     if (Number.isFinite(s1) && s1 > 0) return s1;
 
-    // 2) results payload rich map
     const v2 = payload?.seeds?.[key];
     const s2 = Number(v2?.seed ?? v2);
     if (Number.isFinite(s2) && s2 > 0) return s2;
 
-    // 3) entry snapshots
     const snaps = entry?.payload?.teamSnapshots || [];
     const snap = snaps.find((t) => String(t?.id) === key);
     const s3 = Number(snap?.seed ?? null);
@@ -159,6 +156,7 @@
                 {#each ROUNDS as r (r)}
                   <th>{r.toUpperCase()}</th>
                 {/each}
+                <th style="width:160px;">Quick status</th>
               </tr>
             </thead>
             <tbody>
@@ -196,6 +194,41 @@
                       />
                     </td>
                   {/each}
+
+                  <td>
+                    <div class="status-cell">
+                      <span class={eliminatedByTeamId?.[String(t.id)] ? 'pill pill--red' : 'pill pill--green'}>
+                        {eliminatedByTeamId?.[String(t.id)] ? 'Out' : 'Alive'}
+                      </span>
+
+                      <form
+                        method="POST"
+                        action="?/toggleEliminated"
+                        use:enhance={() => {
+                          toggleMsg = '';
+                          return async ({ result, update }) => {
+                            if (result.type === 'success') {
+                              await update({ reset: false });
+                              toggleMsg = 'Team status updated ✅';
+                            } else if (result.type === 'failure') {
+                              toggleMsg = result.data?.error || 'Status update failed.';
+                            } else {
+                              toggleMsg = 'Status update failed.';
+                            }
+                          };
+                        }}
+                      >
+                        <input type="hidden" name="teamId" value={String(t.id)} />
+                        <input type="hidden" name="nextState" value={eliminatedByTeamId?.[String(t.id)] ? 'alive' : 'out'} />
+                        <button
+                          type="submit"
+                          class={eliminatedByTeamId?.[String(t.id)] ? 'btn btn--ghost btn--tiny' : 'btn btn--danger btn--tiny'}
+                        >
+                          {eliminatedByTeamId?.[String(t.id)] ? 'Restore' : 'Eliminate'}
+                        </button>
+                      </form>
+                    </div>
+                  </td>
                 </tr>
               {/each}
             </tbody>
@@ -210,6 +243,9 @@
           <div class="muted">
             {#if publishMsg}
               {publishMsg}
+            {/if}
+            {#if toggleMsg}
+              <div>{toggleMsg}</div>
             {/if}
           </div>
         </div>
@@ -332,20 +368,20 @@
   }
 
   .chip-seed {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: 0.85rem;
-  line-height: 1;
-  border: 1px solid rgba(212, 175, 55, 0.35);     /* gold outline */
-  background:  rgba(212, 175, 55, 0.14);           /* gold tint */
-  color: rgba(255, 255, 255, 0.92);
-  flex: 0 0 auto;
-}
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: 0.85rem;
+    line-height: 1;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    background: rgba(212, 175, 55, 0.14);
+    color: rgba(255, 255, 255, 0.92);
+    flex: 0 0 auto;
+  }
 
   .tablewrap {
     margin-top: 14px;
@@ -354,7 +390,7 @@
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(0,0,0,0.22);
   }
-  .tbl { width: 100%; border-collapse: collapse; min-width: 860px; }
+  .tbl { width: 100%; border-collapse: collapse; min-width: 980px; }
   .tbl th, .tbl td {
     padding: 10px 12px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -373,5 +409,29 @@
     background: rgba(0,0,0,0.28);
     color: rgba(255,255,255,0.92);
     outline: none;
+  }
+
+  .status-cell {
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+  }
+
+  .btn--tiny {
+    min-height: 32px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 900;
+  }
+
+  .btn--danger {
+    border: 1px solid rgba(255,120,120,0.28);
+    background: rgba(255,120,120,0.08);
+    color: rgba(255,235,235,0.98);
+  }
+
+  .btn--danger:hover {
+    background: rgba(255,120,120,0.12);
   }
 </style>

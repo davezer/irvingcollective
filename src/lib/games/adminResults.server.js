@@ -232,3 +232,16 @@ export async function actionResetTournament({ db, event }) {
 
 
 
+
+
+export async function actionToggleEliminated({ db, event, request }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.toggleEliminated)
+    return fail(400, { ok: false, error: 'Team elimination not supported for this event type.' });
+
+  const form = await request.formData();
+  const out = await handler.toggleEliminated({ db, event, form });
+  if (!out?.ok) return out;
+
+  return out;
+}

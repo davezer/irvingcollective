@@ -43,8 +43,6 @@
     selectedImpactTeamId = mostPickedTeams[0]?.id || teamStats[0]?.id || '';
   }
 
-  $: selectedTeamImpact = selectedImpactTeamId ? buildTeamImpact(selectedImpactTeamId) : null;
-
   function prettyLock(ts) {
     if (!ts) return '';
     return new Date(Number(ts) * 1000).toLocaleString();
@@ -53,11 +51,13 @@
   function badgeList(entry) {
     const badges = [];
 
-    if (entry.alive === 4) badges.push({ label: 'All 4 alive', tone: 'green' });
-    if (entry.alive === 0 && completedRoundIndex >= 0) badges.push({ label: 'Busted', tone: 'red' });
+    const aliveNow = displayAliveCount(entry);
+
+    if (aliveNow === 4) badges.push({ label: 'All 4 alive', tone: 'green' });
+    if (displayEntryIsBusted(entry)) badges.push({ label: 'Busted', tone: 'red' });
     if (boldestEntry && entry.user_id === boldestEntry.user_id) badges.push({ label: 'Boldest card', tone: 'gold' });
     if (chalkiestEntry && entry.user_id === chalkiestEntry.user_id) badges.push({ label: 'Chalk king', tone: 'muted' });
-    if (mostAliveEntry && entry.user_id === mostAliveEntry.user_id) badges.push({ label: 'Most alive', tone: 'green' });
+    if (displayMostAliveEntry && entry.user_id === displayMostAliveEntry.user_id) badges.push({ label: 'Most alive', tone: 'green' });
 
     const highestSeedOnCard = Math.max(
       0,
@@ -83,6 +83,52 @@
     const row = teamPickMap.get(teamIdOf(team));
     return row?.owners || [];
   }
+
+  const eliminatedByTeamId = resultsPayload?.eliminatedByTeamId || {};
+
+  function isEliminatedTeamId(id) {
+    return !!eliminatedByTeamId?.[id];
+  }
+
+  function isManuallyEliminated(team) {
+    return isEliminatedTeamId(teamIdOf(team));
+  }
+
+  function displayTeamStatus(team) {
+    return isManuallyEliminated(team) ? 'eliminated' : teamStatus(team);
+  }
+
+  function displayStageLabel(team) {
+    return isManuallyEliminated(team) ? 'Out' : stageLabel(team);
+  }
+
+  function displayAliveCount(entry) {
+    return (entry?.selectedTeams || []).filter((team) => displayTeamStatus(team) !== 'eliminated').length;
+  }
+
+  function displayEntryIsBusted(entry) {
+    return displayAliveCount(entry) === 0 && completedRoundIndex >= 0;
+  }
+
+  $: displayMostPickedTeams = mostPickedTeams.map((row) => ({
+    ...row,
+    status: isEliminatedTeamId(row.id) ? 'eliminated' : row.status,
+    stage: isEliminatedTeamId(row.id) ? 'Out' : row.stage
+  }));
+
+  $: displaySurvivingLongshots = survivingLongshots.filter((row) => !isEliminatedTeamId(row.id));
+
+  $: displayMostAliveEntry = [...enrichedEntries]
+    .sort((a, b) => displayAliveCount(b) - displayAliveCount(a) || (b.scoreTotal || 0) - (a.scoreTotal || 0))[0] || null;
+
+  $: rawTeamImpact = selectedImpactTeamId ? buildTeamImpact(selectedImpactTeamId) : null;
+  $: selectedTeamImpact = rawTeamImpact
+    ? {
+        ...rawTeamImpact,
+        status: isEliminatedTeamId(rawTeamImpact.id) ? 'eliminated' : rawTeamImpact.status,
+        stage: isEliminatedTeamId(rawTeamImpact.id) ? 'Out' : rawTeamImpact.stage
+      }
+    : null;
 </script>
 
 <div class="page-wide">
@@ -173,9 +219,9 @@
 
       <div class="stat-card">
         <div class="stat-label">Most alive</div>
-        {#if mostAliveEntry}
-          <div class="stat-value">{mostAliveEntry.display_name}</div>
-          <div class="stat-sub">{mostAliveEntry.alive} alive</div>
+        {#if displayMostAliveEntry}
+          <div class="stat-value">{displayMostAliveEntry.display_name}</div>
+          <div class="stat-sub">{displayAliveCount(displayMostAliveEntry)} alive</div>
         {:else}
           <div class="stat-value">—</div>
         {/if}
@@ -223,7 +269,7 @@
         </div>
 
         <div class="popular-list">
-          {#each mostPickedTeams as row (row.id)}
+          {#each displayMostPickedTeams as row (row.id)}
             <button
               type="button"
               class:selected={selectedImpactTeamId === row.id}
@@ -275,9 +321,9 @@
           
         </div>
         
-        {#if survivingLongshots.length}
+        {#if displaySurvivingLongshots.length}
           <div class="chips-wrap">
-            {#each survivingLongshots as row (row.id)}
+            {#each displaySurvivingLongshots as row (row.id)}
               <div class="story-chip story-chip--gold">
                 <div class="story-chip__title">{row.seed} seed {fmtTeamName(row.team)}</div>
                 <div class="story-chip__sub">
@@ -319,7 +365,7 @@
         <div class="entry-meta entry-meta--top">
           <span>{entry.scoreTotal} pts</span>
           <span>•</span>
-          <span>{entry.alive} alive</span>
+          <span>{displayAliveCount(entry)} alive</span>
           <span>•</span>
           <span>avg {fmtAvgSeed(entry.avgSeed)}</span>
         </div>
@@ -342,7 +388,7 @@
           <div class="entry-body">
           <div class="team-strip">
               {#each entry.selectedTeams as team (team.id)}
-                {@const status = teamStatus(team)}
+                {@const status = displayTeamStatus(team)}
                 <div class={`team-chip team-chip--${status}`}>
                   <div class="team-chip__top">
                     <div class="team-chip__identity">
@@ -357,7 +403,7 @@
                           {fmtTeamName(team)}
                         </div>
                         <div class="team-chip__meta">
-                          {#if team.region}{team.region} • {/if}{stageLabel(team)}
+                          {#if team.region}{team.region} • {/if}{displayStageLabel(team)}
                         </div>
                       </div>
                     </div>

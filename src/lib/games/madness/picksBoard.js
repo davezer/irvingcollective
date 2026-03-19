@@ -16,6 +16,11 @@ export function teamIdOf(t) {
 export function createPicksBoardContext({ entries = [], resultsPayload = null }) {
   const winsByTeamId = resultsPayload?.winsByTeamId || {};
   const seedsByTeamId = resultsPayload?.seedsByTeamId || {};
+  const eliminatedByTeamId = resultsPayload?.eliminatedByTeamId || {};
+
+  function isManuallyEliminated(team) {
+    return Boolean(eliminatedByTeamId?.[teamIdOf(team)]);
+  }
 
   function seedOf(team) {
     const tid = teamIdOf(team);
@@ -66,27 +71,29 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
   const completedRoundIndex = maxCompletedRoundIndex();
   const completedRoundLabel = completedRoundIndex >= 0 ? ROUNDS[completedRoundIndex].long : 'No rounds complete yet';
 
-  function teamStatus(team) {
-    const wc = winsCount(team);
+function teamStatus(team) {
+  if (isManuallyEliminated(team)) return 'eliminated';
 
-    if (completedRoundIndex < 0) return 'alive';
-    if (wc === 6) return 'champion';
-    if (wc < completedRoundIndex + 1) return 'eliminated';
-    return 'alive';
-  }
+  const wc = winsCount(team);
+  if (wc === 6) return 'champion';
 
-  function stageLabel(team) {
-    const wc = winsCount(team);
-    if (wc >= 6) return 'Champion';
-    if (wc === 5) return 'Title Game';
-    if (wc === 4) return 'Final Four';
-    if (wc === 3) return 'Elite 8';
-    if (wc === 2) return 'Sweet 16';
-    if (wc === 1) return 'Round of 32';
-    if (completedRoundIndex < 0) return 'Awaiting tip off';
-    if (teamStatus(team) === 'eliminated') return 'Out';
-    return 'Round of 64';
-  }
+  return 'alive';
+}
+
+function stageLabel(team) {
+  if (isManuallyEliminated(team)) return 'Out';
+
+  const wc = winsCount(team);
+
+  if (wc >= 6) return 'Champion';
+  if (wc === 5) return 'Title Game';
+  if (wc === 4) return 'Final Four';
+  if (wc === 3) return 'Elite 8';
+  if (wc === 2) return 'Sweet 16';
+  if (wc === 1) return 'Round of 32';
+
+  return 'Awaiting tip off';
+}
 
   function averageSeed(teams) {
     const vals = (teams || []).map(seedOf).filter((n) => Number.isFinite(n));
@@ -94,14 +101,12 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }
 
-  function aliveCount(teams) {
-    if (completedRoundIndex < 0) return (teams || []).length;
-    return (teams || []).filter((t) => teamStatus(t) === 'alive' || teamStatus(t) === 'champion').length;
-  }
-
-  function eliminatedCount(teams) {
-    return (teams || []).filter((t) => teamStatus(t) === 'eliminated').length;
-  }
+function aliveCount(teams) {
+  return (teams || []).filter((t) => !isManuallyEliminated(t)).length;
+}
+function eliminatedCount(teams) {
+  return (teams || []).filter((t) => isManuallyEliminated(t)).length;
+}
 
   function totalTeamPoints(teams) {
     return (teams || []).reduce((sum, t) => sum + pointsSoFar(t), 0);
@@ -152,7 +157,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     const current = pointsSoFar(team);
     const status = teamStatus(team);
     const wc = winsCount(team);
-    const alive = status === 'alive' || status === 'champion' || completedRoundIndex < 0;
+    const alive = status === 'alive' || status === 'champion' || (completedRoundIndex < 0 && !isManuallyEliminated(team));
     const remainingRounds = alive ? Math.max(0, ROUNDS.length - wc) : 0;
     const future = alive
       ? ROUNDS.slice(wc).reduce((sum, r) => sum + seed * r.mult, 0)
@@ -189,6 +194,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
         seed,
         wins,
         status,
+        manuallyEliminated: isManuallyEliminated(row.team),
         aliveOwners: row.owners.length,
         points: pointsSoFar(row.team),
         stage: stageLabel(row.team),
@@ -262,7 +268,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     });
 
     const aliveItems = futureItems
-      .filter((item) => item.status === 'alive' || item.status === 'champion' || completedRoundIndex < 0)
+      .filter((item) => item.status === 'alive' || item.status === 'champion' || (completedRoundIndex < 0 && !isManuallyEliminated(item.team)))
       .sort((a, b) => {
         if (b.future !== a.future) return b.future - a.future;
         if ((b.seed ?? 0) !== (a.seed ?? 0)) return (b.seed ?? 0) - (a.seed ?? 0);
@@ -288,7 +294,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     const chalkThreat = [...teamStats]
       .filter((row) => row.count >= Math.max(2, Math.ceil(entries.length * 0.45)))
       .filter((row) => !teams.some((team) => teamIdOf(team) === row.id))
-      .filter((row) => row.status === 'alive' || row.status === 'champion' || completedRoundIndex < 0)
+      .filter((row) => row.status === 'alive' || row.status === 'champion' || (completedRoundIndex < 0 && !row.manuallyEliminated))
       .sort((a, b) => {
         if (b.futurePoints !== a.futurePoints) return b.futurePoints - a.futurePoints;
         if (b.count !== a.count) return b.count - a.count;
@@ -372,6 +378,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     const ownershipByRound = ROUNDS.map((round, idx) => {
       const owners = entries.filter((entry) => (entry.selectedTeams || []).some((team) => {
         if (teamIdOf(team) !== teamId) return false;
+        if (isManuallyEliminated(team)) return idx === 0;
         return winsCount(team) >= idx;
       }));
 
@@ -391,9 +398,11 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
       affectedEntries,
       beneficiary,
       casualty: beneficiary,
-      impactIfWin: beneficiary
-        ? `${beneficiary.display_name} gains the most (${beneficiary.swing} pts still live).`
-        : 'Nobody is directly impacted.',
+      impactIfWin: row.status === 'eliminated'
+        ? `${itemName(row.team)} has already been marked out.`
+        : beneficiary
+          ? `${beneficiary.display_name} gains the most (${beneficiary.swing} pts still live).`
+          : 'Nobody is directly impacted.',
       impactIfLose: beneficiary
         ? `${beneficiary.display_name} takes the biggest hit if ${itemName(row.team)} goes out now.`
         : 'A loss would mostly be cosmetic.'
@@ -462,7 +471,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
       return String(a.display_name || '').localeCompare(String(b.display_name || ''));
     });
 
-  const mostPickedTeams = teamStats.slice(0, 5);
+  const mostPickedTeams = teamStats.slice(0, 3);
 
   const highestSeedPicked = [...teamStats]
     .filter((t) => Number.isFinite(t.seed))
@@ -490,7 +499,10 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     })[0] || null;
 
   const ownershipByRound = ROUNDS.map((r, idx) => {
-    const count = teamStats.filter((t) => t.wins >= idx + 1).length;
+    const count = teamStats.filter((t) => {
+      if (t.manuallyEliminated) return idx === 0;
+      return t.wins >= idx + 1;
+    }).length;
     return {
       ...r,
       count
@@ -524,6 +536,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     ROUNDS,
     winsByTeamId,
     seedsByTeamId,
+    eliminatedByTeamId,
     completedRoundIndex,
     completedRoundLabel,
     teamPickMap,
@@ -544,6 +557,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     pointsSoFar,
     teamStatus,
     stageLabel,
+    isManuallyEliminated,
     buildFuturePoints,
     buildFatePath,
     buildTeamImpact

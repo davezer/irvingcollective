@@ -11,7 +11,7 @@
     <div class="fate-head">
       <div>
         <div class="fate-title">Path to Win</div>
-        <div class="fate-summary">{fatePath.summary}</div>
+        <!-- <div class="fate-summary">{fatePath.summary}</div> -->
       </div>
     </div>
 

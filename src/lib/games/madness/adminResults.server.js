@@ -5,6 +5,8 @@ import { loadEntriesWithScores } from '$lib/games/adminResults.server.js';
 import { mergeResultsPayload } from '$lib/games/adminResults.server.js';
 import { fetchSeedsFromProvider, parseSeedsJson } from '$lib/games/madness/seeds.js';
 
+const STAGE_KEYS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+
 function normalizeTeamSnap(x) {
   return {
     id: x?.id != null ? String(x.id) : '',
@@ -17,7 +19,7 @@ function normalizeTeamSnap(x) {
 export async function load({ db, event }) {
   const results = await getResultsForEvent(db, event.id);
   const entries = await loadEntriesWithScores({ db, eventId: event.id });
-  
+
   // Derive pickedTeams unique across entries
   const teamMap = new Map();
 
@@ -52,69 +54,86 @@ export async function load({ db, event }) {
 }
 
 /**
- * Publish Madness “official results” for scoring:
- * - seedsByTeamId: { [teamId]: number }
- * - winsByTeamId: { [teamId]: {r1..r6 boolean} }
+ * Publish Madness official results for scoring.
  *
- * IMPORTANT: This merges into existing results payload so it doesn't clobber synced seeds.
+ * This reads from the already-saved live payload so admin seed edits / win
+ * toggles / eliminations / manual stage changes can update immediately,
+ * while Publish acts as the official recompute checkpoint.
  */
-export async function publish({ db, event, form }) {
-  let ids = [];
-  try {
-    ids = JSON.parse(String(form.get('pickedTeamIds') || '[]')).map(String);
-  } catch {
-    return fail(400, { ok: false, error: 'Invalid pickedTeamIds payload.' });
-  }
-
-  ids = ids.filter(Boolean);
-  const idUniq = new Set(ids);
-  if (idUniq.size !== ids.length) {
-    return fail(400, { ok: false, error: 'pickedTeamIds must be unique.' });
-  }
-
-  const seedsByTeamId = {};
-  const winsByTeamId = {};
+export async function publish({ db, event }) {
   const currentResults = await getResultsForEvent(db, event.id);
-  const currentPayload = currentResults?.payload && typeof currentResults.payload === 'object' ? currentResults.payload : {};
+  const currentPayload =
+    currentResults?.payload && typeof currentResults.payload === 'object'
+      ? currentResults.payload
+      : {};
+
+  const seedsByTeamId = { ...(currentPayload.seedsByTeamId || {}) };
+  const winsByTeamId = { ...(currentPayload.winsByTeamId || {}) };
   const eliminatedByTeamId = { ...(currentPayload.eliminatedByTeamId || {}) };
+  const currentStage = String(currentPayload.currentStage || '').trim().toLowerCase();
 
-  for (const id of ids) {
-    const seedRaw = String(form.get(`seed_${id}`) || '').trim();
-    const seed = Number(seedRaw);
+  const pickedIds = new Set();
 
+  const entries = await loadEntriesWithScores({ db, eventId: event.id });
+  for (const e of entries) {
+    for (const id of e?.payload?.teamIds || []) {
+      const tid = String(id || '').trim();
+      if (tid) pickedIds.add(tid);
+    }
+  }
+
+  if (!pickedIds.size) {
+    return fail(400, { ok: false, error: 'No picked teams found for this event.' });
+  }
+
+  for (const id of pickedIds) {
+    const seed = Number(seedsByTeamId[id]);
     if (!Number.isFinite(seed) || seed < 1 || seed > 16) {
       return fail(400, {
         ok: false,
-        error: `Missing/invalid seed for team ${id} (must be 1–16).`
+        error: `Missing/invalid seed for team ${id} (must be 1–16 before publishing).`
       });
     }
+  }
 
-    seedsByTeamId[id] = seed;
-
-    delete eliminatedByTeamId[id];
-
-    winsByTeamId[id] = {
-      r1: form.get(`win_${id}_r1`) === 'on',
-      r2: form.get(`win_${id}_r2`) === 'on',
-      r3: form.get(`win_${id}_r3`) === 'on',
-      r4: form.get(`win_${id}_r4`) === 'on',
-      r5: form.get(`win_${id}_r5`) === 'on',
-      r6: form.get(`win_${id}_r6`) === 'on'
+  const cleanedWinsByTeamId = {};
+  for (const id of pickedIds) {
+    const src = winsByTeamId[id] && typeof winsByTeamId[id] === 'object' ? winsByTeamId[id] : {};
+    cleanedWinsByTeamId[id] = {
+      r1: Boolean(src.r1),
+      r2: Boolean(src.r2),
+      r3: Boolean(src.r3),
+      r4: Boolean(src.r4),
+      r5: Boolean(src.r5),
+      r6: Boolean(src.r6)
     };
+  }
+
+  const cleanedSeedsByTeamId = {};
+  for (const id of pickedIds) {
+    cleanedSeedsByTeamId[id] = Number(seedsByTeamId[id]);
+  }
+
+  const cleanedEliminatedByTeamId = {};
+  for (const [teamId, v] of Object.entries(eliminatedByTeamId)) {
+    if (pickedIds.has(String(teamId)) && v) {
+      cleanedEliminatedByTeamId[String(teamId)] = true;
+    }
   }
 
   const now = Math.floor(Date.now() / 1000);
 
-    await mergeResultsPayload({
+  await mergeResultsPayload({
     db,
     eventId: event.id,
     now,
-    setPublishedAt: true, // ✅ writes results.published_at
+    setPublishedAt: true,
     patch: {
-      seedsByTeamId,
-      winsByTeamId,
-      eliminatedByTeamId,
-      publishedAt: now // optional: keep inside payload if you like
+      seedsByTeamId: cleanedSeedsByTeamId,
+      winsByTeamId: cleanedWinsByTeamId,
+      eliminatedByTeamId: cleanedEliminatedByTeamId,
+      currentStage: STAGE_KEYS.includes(currentStage) ? currentStage : 'r1',
+      publishedAt: now
     }
   });
 
@@ -139,7 +158,7 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
     note = fetched.note || '';
   }
 
-  // ✅ numeric map used by admin + RoundTracker + scoring
+  // numeric map used by admin + RoundTracker + scoring
   const seedsByTeamId = {};
   for (const [teamId, v] of Object.entries(seeds || {})) {
     const seedNum = Number(v?.seed ?? v);
@@ -153,8 +172,8 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
     eventId: event.id,
     now,
     patch: {
-      seeds,         // { [teamId]: { seed, region } }
-      seedsByTeamId, // { [teamId]: number } ✅
+      seeds,
+      seedsByTeamId,
       syncedAt: now,
       source,
       syncNote: note || null
@@ -164,20 +183,118 @@ export async function syncSeeds({ db, event, form, fetchImpl }) {
   return { ok: true, seedCount: Object.keys(seedsByTeamId).length, source };
 }
 
+export async function setSeed({ db, event, form }) {
+  const teamId = String(form.get('teamId') || '').trim();
+  const seedRaw = String(form.get('seed') || '').trim();
+
+  if (!teamId) return fail(400, { ok: false, error: 'Missing teamId.' });
+
+  const seed = Number(seedRaw);
+  if (!Number.isFinite(seed) || seed < 1 || seed > 16) {
+    return fail(400, { ok: false, error: 'Invalid seed.' });
+  }
+
+  const currentResults = await getResultsForEvent(db, event.id);
+  const currentPayload =
+    currentResults?.payload && typeof currentResults.payload === 'object'
+      ? currentResults.payload
+      : {};
+
+  const seedsByTeamId = { ...(currentPayload.seedsByTeamId || {}) };
+  seedsByTeamId[teamId] = seed;
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await mergeResultsPayload({
+    db,
+    eventId: event.id,
+    now,
+    patch: {
+      seedsByTeamId
+    }
+  });
+
+  return { ok: true, teamId, seed };
+}
+
+export async function setWinState({ db, event, form }) {
+  const teamId = String(form.get('teamId') || '').trim();
+  const round = String(form.get('round') || '').trim();
+  const checked = String(form.get('checked') || '').trim() === 'true';
+
+  if (!teamId) return fail(400, { ok: false, error: 'Missing teamId.' });
+
+  if (!STAGE_KEYS.includes(round)) {
+    return fail(400, { ok: false, error: 'Invalid round.' });
+  }
+
+  const currentResults = await getResultsForEvent(db, event.id);
+  const currentPayload =
+    currentResults?.payload && typeof currentResults.payload === 'object'
+      ? currentResults.payload
+      : {};
+
+  const winsByTeamId = { ...(currentPayload.winsByTeamId || {}) };
+  const teamWins =
+    winsByTeamId[teamId] && typeof winsByTeamId[teamId] === 'object'
+      ? { ...winsByTeamId[teamId] }
+      : {};
+
+  if (checked) teamWins[round] = true;
+  else delete teamWins[round];
+
+  const hasAnyWins = STAGE_KEYS.some((r) => Boolean(teamWins[r]));
+  if (hasAnyWins) winsByTeamId[teamId] = teamWins;
+  else delete winsByTeamId[teamId];
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await mergeResultsPayload({
+    db,
+    eventId: event.id,
+    now,
+    patch: {
+      winsByTeamId
+    }
+  });
+
+  return { ok: true, teamId, round, checked };
+}
+
+export async function setCurrentStage({ db, event, form }) {
+  const stage = String(form.get('stage') || '').trim().toLowerCase();
+
+  if (!STAGE_KEYS.includes(stage)) {
+    return fail(400, { ok: false, error: 'Invalid stage.' });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await mergeResultsPayload({
+    db,
+    eventId: event.id,
+    now,
+    patch: {
+      currentStage: stage
+    }
+  });
+
+  return { ok: true, stage };
+}
 
 export async function toggleEliminated({ db, event, form }) {
   const teamId = String(form.get('teamId') || '').trim();
   if (!teamId) return fail(400, { ok: false, error: 'Missing teamId.' });
 
   const currentResults = await getResultsForEvent(db, event.id);
-  const currentPayload = currentResults?.payload && typeof currentResults.payload === 'object' ? currentResults.payload : {};
+  const currentPayload =
+    currentResults?.payload && typeof currentResults.payload === 'object'
+      ? currentResults.payload
+      : {};
+
   const eliminatedByTeamId = { ...(currentPayload.eliminatedByTeamId || {}) };
 
-  const nextStateRaw = String(form.get('nextState') || '').trim().toLowerCase();
-  const shouldEliminate = nextStateRaw ? nextStateRaw === 'out' : !Boolean(eliminatedByTeamId[teamId]);
-
-  if (shouldEliminate) eliminatedByTeamId[teamId] = true;
-  else delete eliminatedByTeamId[teamId];
+  eliminatedByTeamId[teamId] = true;
 
   const now = Math.floor(Date.now() / 1000);
 
@@ -190,5 +307,5 @@ export async function toggleEliminated({ db, event, form }) {
     }
   });
 
-  return { ok: true, teamId, status: shouldEliminate ? 'out' : 'alive' };
+  return { ok: true, teamId, status: 'out' };
 }

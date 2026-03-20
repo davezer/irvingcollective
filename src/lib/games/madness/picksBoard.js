@@ -17,6 +17,7 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
   const winsByTeamId = resultsPayload?.winsByTeamId || {};
   const seedsByTeamId = resultsPayload?.seedsByTeamId || {};
   const eliminatedByTeamId = resultsPayload?.eliminatedByTeamId || {};
+  const manualStageKey = String(resultsPayload?.currentStage || '').trim().toLowerCase();
 
   function isManuallyEliminated(team) {
     return Boolean(eliminatedByTeamId?.[teamIdOf(team)]);
@@ -68,8 +69,16 @@ export function createPicksBoardContext({ entries = [], resultsPayload = null })
     return idx;
   }
 
-  const completedRoundIndex = maxCompletedRoundIndex();
-  const completedRoundLabel = completedRoundIndex >= 0 ? ROUNDS[completedRoundIndex].long : 'No rounds complete yet';
+  function stageIndexFromKey(key) {
+    return ROUNDS.findIndex((r) => r.key === key);
+  }
+
+  const inferredCompletedRoundIndex = maxCompletedRoundIndex();
+  const manualCompletedRoundIndex = stageIndexFromKey(manualStageKey);
+  const completedRoundIndex =
+    manualCompletedRoundIndex >= 0 ? manualCompletedRoundIndex : inferredCompletedRoundIndex;
+  const completedRoundLabel =
+    completedRoundIndex >= 0 ? ROUNDS[completedRoundIndex].long : 'No rounds complete yet';
 
 function teamStatus(team) {
   if (isManuallyEliminated(team)) return 'eliminated';

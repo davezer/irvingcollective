@@ -8,7 +8,10 @@ import {
   actionResetEntries,
   actionUnpublish,
   actionResetTournament,
-  actionToggleEliminated
+  actionToggleEliminated,
+  actionSetSeed,
+  actionSetWinState,
+  actionSetCurrentStage
 } from '$lib/games/adminResults.server.js';
 
 export const load = async ({ locals, platform, params, fetch }) => {
@@ -52,6 +55,35 @@ export const actions = {
     return actionUnpublish({ db, event, request });
   },
 
+  setSeed: async ({ locals, platform, params, request }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionSetSeed({ db, event, request });
+  },
+
+  setWinState: async ({ locals, platform, params, request }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionSetWinState({ db, event, request });
+  },
+
+  setCurrentStage: async ({ locals, platform, params, request }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const db = platform.env.DB;
+    const event = await getEventBySlug(db, params.slug);
+    if (!event) return fail(404, { ok: false, error: 'Event not found' });
+
+    return actionSetCurrentStage({ db, event, request });
+  },
 
   toggleEliminated: async ({ locals, platform, params, request }) => {
     if (!locals.user) throw redirect(302, '/login');
@@ -72,6 +104,7 @@ export const actions = {
 
     return actionResetEntries({ db, event, request });
   },
+
   resetTournament: async ({ locals, platform, params }) => {
     if (!locals.user) throw redirect(302, '/login');
 
@@ -80,5 +113,5 @@ export const actions = {
     if (!event) return fail(404, { ok: false, error: 'Event not found' });
 
     return actionResetTournament({ db, event });
-  },
+  }
 };

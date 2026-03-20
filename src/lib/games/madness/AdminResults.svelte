@@ -1,27 +1,158 @@
 <script>
   import { enhance } from '$app/forms';
   import UnpublishButton from '$lib/components/admin/UnpublishButton.svelte';
+  import { invalidateAll } from '$app/navigation';
 
   export let data;
 
-  const { event, results, entries, pickedTeams } = data;
+  let event;
+  let results;
+  let entries;
+  let pickedTeams;
+
+  $: ({ event, results, entries, pickedTeams } = data || {});
 
   let seedSyncing = false;
   let seedSyncMsg = '';
   let publishSaving = false;
   let publishMsg = '';
   let toggleMsg = '';
+  let stageSaving = false;
+  let stageMsg = '';
+  let stageDirty = false;
+  let selectedStage = 'r1';
 
   const ROUNDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+  const STAGES = [
+    { key: 'r1', label: 'Round of 64' },
+    { key: 'r2', label: 'Round of 32' },
+    { key: 'r3', label: 'Sweet 16' },
+    { key: 'r4', label: 'Elite 8' },
+    { key: 'r5', label: 'Final Four' },
+    { key: 'r6', label: 'Championship' }
+  ];
 
-  const pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
-  const eventPublishedAt = event?.results_published_at || null;
+  $: pickedIdsJson = JSON.stringify((pickedTeams || []).map((t) => String(t.id)));
+  $: eventPublishedAt = event?.results_published_at || null;
 
-  const payload = results?.payload || null;
-  const syncedSeeds = payload?.seeds || null;
-  const seedsByTeamId = payload?.seedsByTeamId || null;
-  const winsByTeamId = payload?.winsByTeamId || null;
-  const eliminatedByTeamId = payload?.eliminatedByTeamId || {};
+  $: payload = results?.payload || null;
+  $: syncedSeeds = payload?.seeds || null;
+  $: seedsByTeamId = payload?.seedsByTeamId || null;
+  $: winsByTeamId = payload?.winsByTeamId || null;
+  $: eliminatedByTeamId = payload?.eliminatedByTeamId || {};
+  $: currentStageKey = String(payload?.currentStage || 'r1');
+  $: currentStageLabel = STAGES.find((s) => s.key === currentStageKey)?.label || 'Round of 64';
+  $: if (!stageDirty) selectedStage = currentStageKey;
+
+  let restoringScroll = false;
+
+  function rememberScroll() {
+    sessionStorage.setItem('adminResultsScrollY', String(window.scrollY || 0));
+  }
+
+  async function refreshAndRestore() {
+    if (restoringScroll) return;
+    restoringScroll = true;
+
+    const y = Number(sessionStorage.getItem('adminResultsScrollY') || '0');
+
+    await invalidateAll();
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: y, behavior: 'auto' });
+      restoringScroll = false;
+    });
+  }
+
+  async function saveSeed(teamId, seedValue) {
+    const seed = String(seedValue || '').trim();
+    if (!seed) return;
+
+    rememberScroll();
+    toggleMsg = '';
+
+    const fd = new FormData();
+    fd.set('teamId', String(teamId));
+    fd.set('seed', seed);
+
+    const res = await fetch('?/setSeed', {
+      method: 'POST',
+      body: fd
+    });
+
+    if (res.ok) {
+      await refreshAndRestore();
+      return;
+    }
+
+    try {
+      const j = await res.json();
+      toggleMsg = j?.error || 'Seed update failed.';
+    } catch {
+      toggleMsg = 'Seed update failed.';
+    }
+  }
+
+  async function saveWin(teamId, round, checked) {
+    rememberScroll();
+    toggleMsg = '';
+
+    const fd = new FormData();
+    fd.set('teamId', String(teamId));
+    fd.set('round', String(round));
+    fd.set('checked', checked ? 'true' : 'false');
+
+    const res = await fetch('?/setWinState', {
+      method: 'POST',
+      body: fd
+    });
+
+    if (res.ok) {
+      await refreshAndRestore();
+      return;
+    }
+
+    try {
+      const j = await res.json();
+      toggleMsg = j?.error || 'Win update failed.';
+    } catch {
+      toggleMsg = 'Win update failed.';
+    }
+  }
+
+  async function saveCurrentStage() {
+    rememberScroll();
+    stageSaving = true;
+    stageMsg = '';
+
+    const fd = new FormData();
+    fd.set('stage', selectedStage);
+
+    const res = await fetch('?/setCurrentStage', {
+      method: 'POST',
+      body: fd
+    });
+
+    if (res.ok) {
+      stageDirty = false;
+      stageMsg = 'Board stage updated ✅';
+      await refreshAndRestore();
+      stageSaving = false;
+      return;
+    }
+
+    try {
+      const j = await res.json();
+      stageMsg = j?.error || 'Stage update failed.';
+    } catch {
+      stageMsg = 'Stage update failed.';
+    }
+    stageSaving = false;
+  }
+
+  function isEliminated(id) {
+    return Boolean(eliminatedByTeamId?.[String(id)]);
+  }
 
   function seedPrefill(id) {
     const key = String(id);
@@ -57,7 +188,10 @@
     const s2 = Number(v2?.seed ?? v2);
     if (Number.isFinite(s2) && s2 > 0) return s2;
 
-    const snaps = entry?.payload?.teamSnapshots || [];
+    const snaps = Array.isArray(entry?.payload?.teamSnapshots)
+      ? entry.payload.teamSnapshots
+      : [];
+
     const snap = snaps.find((t) => String(t?.id) === key);
     const s3 = Number(snap?.seed ?? null);
     if (Number.isFinite(s3) && s3 > 0) return s3;
@@ -128,6 +262,55 @@
     {:else}
       <form
         method="POST"
+        action="?/setCurrentStage"
+        use:enhance={() => {
+          stageSaving = true;
+          stageMsg = '';
+          rememberScroll();
+          return async ({ result, update }) => {
+            if (result.type === 'success') {
+              stageDirty = false;
+              await update({ reset: false });
+              await refreshAndRestore();
+              stageMsg = 'Board stage updated ✅';
+            } else if (result.type === 'failure') {
+              stageMsg = result.data?.error || 'Stage update failed.';
+            } else {
+              stageMsg = 'Stage update failed.';
+            }
+            stageSaving = false;
+          };
+        }}
+      >
+        <div class="actions" style="margin-top: 10px;">
+          <div class="muted">Current board stage: {currentStageLabel}</div>
+
+          <select
+            class="seed stage-select"
+            name="stage"
+            bind:value={selectedStage}
+            on:change={() => {
+              stageDirty = true;
+              stageMsg = '';
+            }}
+          >
+            {#each STAGES as stage (stage.key)}
+              <option value={stage.key}>{stage.label}</option>
+            {/each}
+          </select>
+
+          <button class="btn" type="submit" disabled={stageSaving || !stageDirty}>
+            {stageSaving ? 'Saving stage…' : 'Save stage'}
+          </button>
+
+          {#if stageMsg}
+            <div class="muted">{stageMsg}</div>
+          {/if}
+        </div>
+      </form>
+
+      <form
+        method="POST"
         action="?/publish"
         use:enhance={() => {
           publishSaving = true;
@@ -160,8 +343,8 @@
               </tr>
             </thead>
             <tbody>
-              {#each pickedTeams as t (String(t.id))}
-                <tr>
+              {#each pickedTeams as t, i (t?.id != null && t?.id !== '' ? String(t.id) : `picked-${i}`)}
+                <tr class:is-disabled-row={isEliminated(t.id)}>
                   <td>
                     <div class="teamcell">
                       {#if t.logo}
@@ -182,6 +365,8 @@
                       name={"seed_" + t.id}
                       value={seedPrefill(t.id)}
                       required
+                      disabled={isEliminated(t.id)}
+                      on:blur={(e) => saveSeed(t.id, e.currentTarget.value)}
                     />
                   </td>
 
@@ -191,6 +376,8 @@
                         type="checkbox"
                         name={"win_" + t.id + "_" + r}
                         checked={winChecked(t.id, r)}
+                        disabled={isEliminated(t.id)}
+                        on:change={(e) => saveWin(t.id, r, e.currentTarget.checked)}
                       />
                     </td>
                   {/each}
@@ -201,32 +388,19 @@
                         {eliminatedByTeamId?.[String(t.id)] ? 'Out' : 'Alive'}
                       </span>
 
-                      <form
-                        method="POST"
-                        action="?/toggleEliminated"
-                        use:enhance={() => {
-                          toggleMsg = '';
-                          return async ({ result, update }) => {
-                            if (result.type === 'success') {
-                              await update({ reset: false });
-                              toggleMsg = 'Team status updated ✅';
-                            } else if (result.type === 'failure') {
-                              toggleMsg = result.data?.error || 'Status update failed.';
-                            } else {
-                              toggleMsg = 'Status update failed.';
-                            }
-                          };
-                        }}
-                      >
-                        <input type="hidden" name="teamId" value={String(t.id)} />
-                        <input type="hidden" name="nextState" value={eliminatedByTeamId?.[String(t.id)] ? 'alive' : 'out'} />
+                      {#if !eliminatedByTeamId?.[String(t.id)]}
                         <button
                           type="submit"
-                          class={eliminatedByTeamId?.[String(t.id)] ? 'btn btn--ghost btn--tiny' : 'btn btn--danger btn--tiny'}
+                          class="btn btn--danger"
+                          formaction="?/toggleEliminated"
+                          formmethod="POST"
+                          name="teamId"
+                          value={String(t.id)}
+                          on:click={rememberScroll}
                         >
-                          {eliminatedByTeamId?.[String(t.id)] ? 'Restore' : 'Eliminate'}
+                          Eliminate
                         </button>
-                      </form>
+                      {/if}
                     </div>
                   </td>
                 </tr>
@@ -237,7 +411,7 @@
 
         <div class="actions">
           <button class="btn btn--vip" type="submit" disabled={publishSaving}>
-            {publishSaving ? 'Publishing…' : 'Publish results + recompute'}
+            {publishSaving ? 'Publishing…' : 'Advance round + recompute'}
           </button>
 
           <div class="muted">
@@ -276,38 +450,39 @@
       {#if !entries?.length}
         <div class="muted">No entries yet.</div>
       {:else}
-        {#each entries as e (String(e.id))}
+        {#each entries as e, entryIndex (e?.id != null && e?.id !== '' ? String(e.id) : `entry-${entryIndex}`)}
           <div class="row">
             <div class="row-top">
               <div class="name">{e.display_name}</div>
+
               {#if e.score}
                 <span class="pill pill--gold">{e.score.score_total} pts</span>
               {/if}
             </div>
 
-            {#if e?.payload?.teamSnapshots?.length}
+            {#if Array.isArray(e?.payload?.teamSnapshots) && e.payload.teamSnapshots.length}
               <div class="chips">
-                {#each e.payload.teamSnapshots as s (String(s?.id))}
+                {#each e.payload.teamSnapshots as s, i (s?.id != null && s?.id !== '' ? `${String(e?.id ?? 'entry')}-${String(s.id)}` : `${String(e?.id ?? 'entry')}-snapshot-${i}`)}
                   {@const tid = String(s?.id ?? '')}
                   {@const seed = seedForTeamId(tid, e)}
                   <span class="chip">
                     {#if seed}
                       <span class="chip-seed" aria-label={"Seed " + seed}>{seed}</span>
                     {/if}
-                    <span>{s?.abbrev || s?.name || s?.id}</span>
+                    <span>{s?.abbrev || s?.name || s?.id || `Team ${i + 1}`}</span>
                   </span>
                 {/each}
               </div>
-            {:else if e?.payload?.teamIds?.length}
+            {:else if Array.isArray(e?.payload?.teamIds) && e.payload.teamIds.length}
               <div class="chips">
-                {#each e.payload.teamIds as id (String(id))}
-                  {@const tid = String(id)}
+                {#each e.payload.teamIds as id, i (id != null && id !== '' ? `${String(e?.id ?? 'entry')}-${String(id)}` : `${String(e?.id ?? 'entry')}-teamid-${i}`)}
+                  {@const tid = String(id ?? '')}
                   {@const seed = seedForTeamId(tid, e)}
                   <span class="chip">
                     {#if seed}
                       <span class="chip-seed" aria-label={"Seed " + seed}>{seed}</span>
                     {/if}
-                    <span>{tid}</span>
+                    <span>{tid || `Team ${i + 1}`}</span>
                   </span>
                 {/each}
               </div>
@@ -433,5 +608,31 @@
 
   .btn--danger:hover {
     background: rgba(255,120,120,0.12);
+  }
+
+  .is-disabled-row {
+    opacity: 0.48;
+  }
+
+  .is-disabled-row td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .is-disabled-row .teamname,
+  .is-disabled-row .muted,
+  .is-disabled-row .teamcell {
+    filter: grayscale(0.35);
+  }
+
+  .is-disabled-row input,
+  .is-disabled-row button,
+  .is-disabled-row select,
+  .is-disabled-row textarea {
+    pointer-events: none;
+  }
+
+  .is-disabled-row input[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 </style>

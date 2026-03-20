@@ -126,7 +126,7 @@ export async function actionPublish({ db, event, request, fetchImpl }) {
   const recompute = await recomputeScoresForEvent(db, event);
   if (!recompute.ok) return fail(400, { ok: false, error: recompute.error });
 
-  // ✅ Mark event as published (unix seconds)
+  // Mark event as published (unix seconds)
   await db
     .prepare(
       `
@@ -141,8 +141,6 @@ export async function actionPublish({ db, event, request, fetchImpl }) {
   return { ok: true, count: recompute.count };
 }
 
-
-
 export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
   const handler = HANDLERS[event.type];
   if (!handler?.syncSeeds) return fail(400, { ok: false, error: 'Seed sync not supported for this event.' });
@@ -150,6 +148,46 @@ export async function actionSyncSeeds({ db, event, request, fetchImpl }) {
   const form = await request.formData();
   return handler.syncSeeds({ db, event, form, fetchImpl });
 }
+
+export async function actionSetSeed({ db, event, request }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.setSeed) {
+    return fail(400, { ok: false, error: 'Seed updates not supported for this event type.' });
+  }
+
+  const form = await request.formData();
+  const out = await handler.setSeed({ db, event, form });
+  if (!out?.ok) return out;
+
+  return out;
+}
+
+export async function actionSetWinState({ db, event, request }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.setWinState) {
+    return fail(400, { ok: false, error: 'Win updates not supported for this event type.' });
+  }
+
+  const form = await request.formData();
+  const out = await handler.setWinState({ db, event, form });
+  if (!out?.ok) return out;
+
+  return out;
+}
+
+export async function actionSetCurrentStage({ db, event, request }) {
+  const handler = HANDLERS[event.type];
+  if (!handler?.setCurrentStage) {
+    return fail(400, { ok: false, error: 'Stage updates not supported for this event type.' });
+  }
+
+  const form = await request.formData();
+  const out = await handler.setCurrentStage({ db, event, form });
+  if (!out?.ok) return out;
+
+  return out;
+}
+
 export async function actionAdvanceRound({ db, event, request, fetchImpl }) {
   const handler = HANDLERS[event.type];
   if (!handler?.advanceRound) return fail(400, { ok: false, error: 'Advance not supported for this event type.' });
@@ -194,7 +232,6 @@ export async function actionUnpublish({ db, event }) {
     .bind(eventId)
     .run();
 
-  // If nothing updated, something is off (bad id, etc.)
   if (!upd?.success) {
     return fail(500, { ok: false, error: 'Failed to update event publish state.' });
   }
@@ -205,17 +242,14 @@ export async function actionUnpublish({ db, event }) {
     .bind(eventId)
     .run();
 
-  // 3) OPTIONAL: Clear the per-game results published timestamp too,
-  // so the Daytona page doesn't keep saying "Current published: <old>".
-  // This depends on your results schema supporting published_at updates via your upsert.
-  // If your results table doesn't have published_at, delete this block.
+  // 3) Optional: clear per-game results published timestamp if supported.
   try {
     await db
       .prepare(`UPDATE results SET published_at = NULL WHERE event_id = ?`)
       .bind(eventId)
       .run();
   } catch {
-    // ignore if results table doesn't have published_at or you don't want to clear it
+    // ignore if results table doesn't have published_at
   }
 
   return { ok: true };
@@ -228,11 +262,6 @@ export async function actionResetTournament({ db, event }) {
 
   return handler.resetTournament({ db, event });
 }
-
-
-
-
-
 
 export async function actionToggleEliminated({ db, event, request }) {
   const handler = HANDLERS[event.type];

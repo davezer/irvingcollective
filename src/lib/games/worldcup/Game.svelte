@@ -35,6 +35,45 @@
     return t?.name || id;
   }
 
+  function sortGroupValue(group) {
+    const g = empty(group).toUpperCase();
+    const idx = 'ABCDEFGHIJKL'.indexOf(g);
+    return idx >= 0 ? idx : 999;
+  }
+
+  function groupLabel(group) {
+    return group ? `Group ${group}` : 'Other Teams';
+  }
+
+  function sortTeamName(a, b) {
+    return empty(a?.name).localeCompare(empty(b?.name), undefined, { sensitivity: 'base' });
+  }
+
+  function groupAndSortTeams(list) {
+    const byGroup = new Map();
+
+    for (const team of list || []) {
+      const group = empty(team?.group).toUpperCase();
+      const key = group || '__other';
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(team);
+    }
+
+    return Array.from(byGroup.entries())
+      .sort(([a], [b]) => sortGroupValue(a === '__other' ? '' : a) - sortGroupValue(b === '__other' ? '' : b))
+      .map(([key, groupTeams]) => {
+        const group = key === '__other' ? '' : key;
+        return {
+          key,
+          group,
+          label: groupLabel(group),
+          teams: [...groupTeams].sort(sortTeamName)
+        };
+      });
+  }
+
+  $: groupedTeams = groupAndSortTeams(teams);
+
   function isUsed(id) {
     // allow selecting same as current round pick (edit)
     const prev = empty(picksByRound?.[currentRound] || '');
@@ -85,12 +124,18 @@
         <input type="hidden" name="round" value={currentRound} />
 
         <label class="label">Select a team</label>
+        <div class="hint">Grouped by World Cup group, alphabetized inside each group.</div>
+
         <select class="select" name="teamId" bind:value={teamId} disabled={locked}>
           <option value="" disabled>Select a team</option>
-          {#each teams as t (t.id)}
-            <option value={t.id} disabled={isUsed(String(t.id))}>
-              {t.name}{isUsed(String(t.id)) ? ' (used)' : ''}
-            </option>
+          {#each groupedTeams as groupBlock (groupBlock.key)}
+            <optgroup label={groupBlock.label}>
+              {#each groupBlock.teams as t (t.id)}
+                <option value={t.id} disabled={isUsed(String(t.id))}>
+                  {t.name}{isUsed(String(t.id)) ? ' (used)' : ''}
+                </option>
+              {/each}
+            </optgroup>
           {/each}
         </select>
 
@@ -215,6 +260,12 @@
   .label{
     font-weight: 900;
     opacity: 0.9;
+  }
+
+  .hint{
+    margin-top: -4px;
+    font-size: 0.86rem;
+    opacity: 0.62;
   }
 
   .select{

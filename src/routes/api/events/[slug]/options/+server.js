@@ -19,7 +19,9 @@ export async function GET({ params, platform, fetch }) {
     db,
     event,
     // ✅ MUST use SvelteKit fetch (Cloudflare-safe + supports relative URLs)
-    fetchImpl: fetch
+    fetchImpl: fetch,
+    // Pass Cloudflare bindings/secrets through to game providers.
+    env: platform?.env || {}
   });
 
   // optional: mild caching of the API response itself (you already cache inside options.js)

@@ -5,10 +5,10 @@ import { getOptionsCache, setOptionsCache } from '$lib/server/db/optionsCache.js
 const PROVIDER = 'api-football';
 const SEASON = 2026;
 const LEAGUE_ID = 1; // API-Football World Cup league id
-const CACHE_KEY = `worldcup:teams:api-football:${SEASON}:v1`;
-const MAX_AGE_SECONDS = 60 * 60 * 6; // 6 hours; team list is stable, but this lets logos/names refresh
+const CACHE_KEY = `worldcup:teams:api-football:${SEASON}:v2`;
+const MAX_AGE_SECONDS = 60 * 60 * 6; // 6 hours; team list is stable, but lets logos/names refresh
 
-const MANUAL_CACHE_KEY = `worldcup:teams:manual:${SEASON}:v2`;
+const MANUAL_CACHE_KEY = `worldcup:teams:manual:${SEASON}:v3`;
 
 const MANUAL_WORLD_CUP_TEAMS = [
   // Group A
@@ -84,27 +84,6 @@ const MANUAL_WORLD_CUP_TEAMS = [
   { id: 'pan', code: 'PAN', name: 'Panama', group: 'L' }
 ];
 
-const STABLE_ID_BY_NAME = {
-  'united states': 'usa',
-  usa: 'usa',
-  'south korea': 'kor',
-  'korea republic': 'kor',
-  'czech republic': 'cze',
-  czechia: 'cze',
-  curacao: 'cuw',
-  curaçao: 'cuw',
-  'ivory coast': 'civ',
-  "cote d ivoire": 'civ',
-  "côte d ivoire": 'civ',
-  'saudi arabia': 'ksa',
-  'new zealand': 'nzl',
-  'cape verde': 'cpv',
-  'dr congo': 'cod',
-  'congo dr': 'cod',
-  'democratic republic of the congo': 'cod',
-  'bosnia and herzegovina': 'bih'
-};
-
 function asStr(v) {
   return v == null ? '' : String(v).trim();
 }
@@ -122,46 +101,108 @@ function slug(v) {
   return normalizeKey(v).replace(/\s+/g, '-');
 }
 
-function stableTeamId({ name, code }) {
-  const key = normalizeKey(name);
-  if (STABLE_ID_BY_NAME[key]) return STABLE_ID_BY_NAME[key];
+const MANUAL_BY_ID = new Map(MANUAL_WORLD_CUP_TEAMS.map((t) => [t.id, t]));
+const MANUAL_ID_BY_CODE = new Map(MANUAL_WORLD_CUP_TEAMS.map((t) => [normalizeKey(t.code), t.id]));
+const MANUAL_ID_BY_NAME = new Map(MANUAL_WORLD_CUP_TEAMS.map((t) => [normalizeKey(t.name), t.id]));
 
-  const codeStr = asStr(code).toLowerCase();
-  if (codeStr) return codeStr;
+// Provider naming is not always the same as our display naming.
+const STABLE_ID_BY_NAME = {
+  usa: 'usa',
+  'united states': 'usa',
+  'united states of america': 'usa',
+  'south korea': 'kor',
+  'korea republic': 'kor',
+  'republic of korea': 'kor',
+  'czech republic': 'cze',
+  czechia: 'cze',
+  curacao: 'cuw',
+  curaçao: 'cuw',
+  'ivory coast': 'civ',
+  'cote d ivoire': 'civ',
+  'côte d ivoire': 'civ',
+  'saudi arabia': 'ksa',
+  'new zealand': 'nzl',
+  'cape verde': 'cpv',
+  'dr congo': 'cod',
+  'congo dr': 'cod',
+  'democratic republic of the congo': 'cod',
+  'bosnia and herzegovina': 'bih',
+  'bosnia herzegovina': 'bih'
+};
+
+function stableTeamId({ name, code }) {
+  const nameKey = normalizeKey(name);
+  if (MANUAL_ID_BY_NAME.has(nameKey)) return MANUAL_ID_BY_NAME.get(nameKey);
+  if (STABLE_ID_BY_NAME[nameKey]) return STABLE_ID_BY_NAME[nameKey];
+
+  const codeKey = normalizeKey(code);
+  if (MANUAL_ID_BY_CODE.has(codeKey)) return MANUAL_ID_BY_CODE.get(codeKey);
+  if (codeKey) return codeKey;
 
   return slug(name);
 }
 
-function normalizeApiFootballTeams(rows) {
-  const out = [];
-  const seen = new Set();
-
-  for (const row of rows || []) {
-    const team = row?.team || row;
-    const name = asStr(team?.name);
-    if (!name) continue;
-
-    const code = asStr(team?.code).toUpperCase() || null;
-    const id = stableTeamId({ name, code });
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-
-    out.push({
-      id,
-      name,
-      code,
-      country: asStr(team?.country) || name,
-      logo: asStr(team?.logo) || null,
-      group: null,
-      providerTeamId: team?.id != null ? String(team.id) : null
-    });
-  }
-
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+function groupFromStandingGroup(v) {
+  const s = asStr(v);
+  const m = s.match(/group\s+([A-L])/i) || s.match(/^([A-L])$/i);
+  return m ? m[1].toUpperCase() : null;
 }
 
-async function fetchApiFootballTeams({ fetchImpl, apiKey }) {
-  const url = `https://v3.football.api-sports.io/teams?league=${LEAGUE_ID}&season=${SEASON}`;
+function normalizeApiTeam(team, extra = {}) {
+  const name = asStr(team?.name || extra.name);
+  if (!name) return null;
+
+  const code = asStr(team?.code || extra.code).toUpperCase() || null;
+  const id = stableTeamId({ name, code });
+  const manual = MANUAL_BY_ID.get(id);
+
+  return {
+    id,
+    name: manual?.name || name,
+    code: manual?.code || code,
+    country: asStr(team?.country) || manual?.name || name,
+    logo: asStr(team?.logo) || null,
+    group: extra.group || manual?.group || null,
+    providerTeamId: team?.id != null ? String(team.id) : null
+  };
+}
+
+function sortTeamsForPicker(list) {
+  return [...(list || [])].sort((a, b) => {
+    const ga = asStr(a?.group).toUpperCase() || 'Z';
+    const gb = asStr(b?.group).toUpperCase() || 'Z';
+    if (ga !== gb) return ga.localeCompare(gb);
+    return asStr(a?.name).localeCompare(asStr(b?.name), undefined, { sensitivity: 'base' });
+  });
+}
+
+function mergeTeams(...lists) {
+  const byId = new Map();
+
+  for (const list of lists) {
+    for (const item of list || []) {
+      if (!item?.id) continue;
+      const prev = byId.get(item.id) || {};
+      byId.set(item.id, {
+        ...prev,
+        ...item,
+        // Do not let nullish provider fields erase useful manual/standings fields.
+        code: item.code || prev.code || null,
+        logo: item.logo || prev.logo || null,
+        group: item.group || prev.group || null,
+        providerTeamId: item.providerTeamId || prev.providerTeamId || null
+      });
+    }
+  }
+
+  return sortTeamsForPicker(Array.from(byId.values()));
+}
+
+async function apiFootballGet({ fetchImpl, apiKey, path, params }) {
+  const url = new URL(`https://v3.football.api-sports.io/${path}`);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v != null && v !== '') url.searchParams.set(k, String(v));
+  }
 
   const res = await fetchImpl(url, {
     headers: {
@@ -172,25 +213,114 @@ async function fetchApiFootballTeams({ fetchImpl, apiKey }) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`API-Football teams failed (${res.status}): ${text.slice(0, 160)}`);
+    throw new Error(`API-Football ${path} failed (${res.status}): ${text.slice(0, 180)}`);
   }
 
-  const data = await res.json();
-  return normalizeApiFootballTeams(data?.response || []);
+  return res.json();
+}
+
+function extractTeamsFromTeamsEndpoint(rows) {
+  return (rows || [])
+    .map((row) => normalizeApiTeam(row?.team || row))
+    .filter(Boolean);
+}
+
+function extractTeamsFromStandings(rows) {
+  const out = [];
+
+  for (const leagueRow of rows || []) {
+    const groups = leagueRow?.league?.standings || [];
+
+    for (const groupRows of groups) {
+      for (const row of groupRows || []) {
+        const group = groupFromStandingGroup(row?.group);
+        const item = normalizeApiTeam(row?.team, { group });
+        if (item) out.push(item);
+      }
+    }
+  }
+
+  return out;
+}
+
+function extractTeamsFromFixtures(rows) {
+  const out = [];
+
+  for (const fixture of rows || []) {
+    const home = normalizeApiTeam(fixture?.teams?.home);
+    const away = normalizeApiTeam(fixture?.teams?.away);
+    if (home) out.push(home);
+    if (away) out.push(away);
+  }
+
+  return out;
+}
+
+async function fetchApiFootballTeams({ fetchImpl, apiKey }) {
+  const trace = [];
+
+  const teamsJson = await apiFootballGet({
+    fetchImpl,
+    apiKey,
+    path: 'teams',
+    params: { league: LEAGUE_ID, season: SEASON }
+  });
+  const fromTeams = extractTeamsFromTeamsEndpoint(teamsJson?.response || []);
+  trace.push(`teams=${fromTeams.length}`);
+
+  // The teams endpoint can be empty for future/special tournaments. Standings and fixtures are often better
+  // once the tournament field/draw/schedule exists.
+  let fromStandings = [];
+  try {
+    const standingsJson = await apiFootballGet({
+      fetchImpl,
+      apiKey,
+      path: 'standings',
+      params: { league: LEAGUE_ID, season: SEASON }
+    });
+    fromStandings = extractTeamsFromStandings(standingsJson?.response || []);
+    trace.push(`standings=${fromStandings.length}`);
+  } catch (e) {
+    trace.push(`standings_error=${e?.message || 'failed'}`);
+  }
+
+  let fromFixtures = [];
+  try {
+    const fixturesJson = await apiFootballGet({
+      fetchImpl,
+      apiKey,
+      path: 'fixtures',
+      params: { league: LEAGUE_ID, season: SEASON }
+    });
+    fromFixtures = extractTeamsFromFixtures(fixturesJson?.response || []);
+    trace.push(`fixtures_unique=${mergeTeams(fromFixtures).length}`);
+  } catch (e) {
+    trace.push(`fixtures_error=${e?.message || 'failed'}`);
+  }
+
+  const options = mergeTeams(fromStandings, fromTeams, fromFixtures);
+  trace.push(`merged=${options.length}`);
+
+  return { options, trace: trace.join(', ') };
 }
 
 function manualReturn(note = '') {
   return {
     provider: 'manual',
     cacheKey: MANUAL_CACHE_KEY,
-    options: MANUAL_WORLD_CUP_TEAMS,
+    options: sortTeamsForPicker(MANUAL_WORLD_CUP_TEAMS),
     mode: 'manual',
     note: note || `Manual ${SEASON} World Cup team list fallback.`
   };
 }
 
-export async function getWorldCupTeamOptions({ db, event, fetchImpl = fetch }) {
+export async function getWorldCupTeamOptions({ db, event, fetchImpl = fetch, env: envBindings = {} }) {
+  // In Cloudflare/SvelteKit, local `.dev.vars` and Pages secrets are most reliably
+  // exposed on `platform.env`. `$env/dynamic/private` is kept as a fallback.
   const apiKey =
+    asStr(envBindings.API_FOOTBALL_KEY) ||
+    asStr(envBindings.APISPORTS_KEY) ||
+    asStr(envBindings.API_SPORTS_KEY) ||
     asStr(env.API_FOOTBALL_KEY) ||
     asStr(env.APISPORTS_KEY) ||
     asStr(env.API_SPORTS_KEY);
@@ -218,11 +348,11 @@ export async function getWorldCupTeamOptions({ db, event, fetchImpl = fetch }) {
   }
 
   try {
-    const options = await fetchApiFootballTeams({ fetchImpl, apiKey });
+    const { options, trace } = await fetchApiFootballTeams({ fetchImpl, apiKey });
 
     // Guardrail: do not cache or serve an obviously partial tournament field.
     if (options.length < 48) {
-      return manualReturn(`API-Football only returned ${options.length} teams; using manual fallback instead.`);
+      return manualReturn(`API-Football did not return the full field (${trace}); using manual fallback instead.`);
     }
 
     const fetchedAt = Math.floor(Date.now() / 1000);

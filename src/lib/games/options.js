@@ -18,7 +18,7 @@ export function hasOptionsProvider(type) {
   return Boolean(OPTIONS_BY_TYPE[type]);
 }
 
-export async function getOptionsForEvent({ db, event, fetchImpl }) {
+export async function getOptionsForEvent({ db, event, fetchImpl, env }) {
   const fn = OPTIONS_BY_TYPE[event.type];
   if (!fn) {
     return {
@@ -30,5 +30,5 @@ export async function getOptionsForEvent({ db, event, fetchImpl }) {
     };
   }
 
-  return fn({ db, event, fetchImpl });
+  return fn({ db, event, fetchImpl, env });
 }

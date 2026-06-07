@@ -2,8 +2,8 @@
 import { WORLD_CUP_ROUNDS, WORLD_CUP_ROUND_LABELS, WORLD_CUP_POINTS } from '$lib/scoring/worldCup.js';
 import { getWorldCupTeamOptions } from '$lib/server/providers/world_cup.js';
 
-export async function getOptions({ db, event, fetchImpl }) {
-  const out = await getWorldCupTeamOptions({ db, event, fetchImpl });
+export async function getOptions({ db, event, fetchImpl, env }) {
+  const out = await getWorldCupTeamOptions({ db, event, fetchImpl, env });
 
   return {
     provider: out.provider,

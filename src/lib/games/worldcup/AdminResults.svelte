@@ -37,6 +37,40 @@
     return `${WORLD_CUP_ROUND_LABELS[r] || r} (${WORLD_CUP_POINTS[r] || 0})`;
   }
 
+  function sortGroupValue(group) {
+    const g = String(group || '').trim().toUpperCase();
+    const idx = 'ABCDEFGHIJKL'.indexOf(g);
+    return idx >= 0 ? idx : 999;
+  }
+
+  function sortTeamName(a, b) {
+    return String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' });
+  }
+
+  function groupAndSortTeams(list) {
+    const byGroup = new Map();
+
+    for (const team of list || []) {
+      const group = String(team?.group || '').trim().toUpperCase();
+      const key = group || '__other';
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(team);
+    }
+
+    return Array.from(byGroup.entries())
+      .sort(([a], [b]) => sortGroupValue(a === '__other' ? '' : a) - sortGroupValue(b === '__other' ? '' : b))
+      .map(([key, groupTeams]) => {
+        const group = key === '__other' ? '' : key;
+        return {
+          key,
+          label: group ? `Group ${group}` : 'Other Teams',
+          teams: [...groupTeams].sort(sortTeamName)
+        };
+      });
+  }
+
+  $: groupedTeams = groupAndSortTeams(teams);
+
   function fmtTs(sec) {
     if (!sec) return '—';
     try {
@@ -76,18 +110,25 @@
 
         <div class="field">
           <label>Teams that advanced (this round)</label>
-          <div class="team-grid">
-            {#each teams as t (t.id)}
-              <label class="team">
-                <input
-                  type="checkbox"
-                  name="advancedTeamId"
-                  value={t.id}
-                  checked={isChecked(t.id)}
-                  on:change={() => toggleAdvanced(t.id)}
-                />
-                <span>{t.name}</span>
-              </label>
+          <div class="team-groups">
+            {#each groupedTeams as groupBlock (groupBlock.key)}
+              <div class="team-group">
+                <div class="team-group-title">{groupBlock.label}</div>
+                <div class="team-grid">
+                  {#each groupBlock.teams as t (t.id)}
+                    <label class="team">
+                      <input
+                        type="checkbox"
+                        name="advancedTeamId"
+                        value={t.id}
+                        checked={isChecked(t.id)}
+                        on:change={() => toggleAdvanced(t.id)}
+                      />
+                      <span>{t.name}</span>
+                    </label>
+                  {/each}
+                </div>
+              </div>
             {/each}
           </div>
           <div class="muted small">
@@ -224,12 +265,33 @@
 
   .divider{ height:1px; background: rgba(255,255,255,0.08); margin: 6px 0; }
 
+  .team-groups{
+    display:grid;
+    gap:12px;
+  }
+
+  .team-group{
+    border-radius: 16px;
+    border:1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.025);
+    padding:10px;
+  }
+
+  .team-group-title{
+    font-weight:950;
+    font-size:0.85rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    opacity:0.78;
+    margin:0 0 8px;
+  }
+
   .team-grid{
     display:grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap:8px;
   }
-  @media (max-width: 860px){ .team-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 960px){ .team-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 520px){ .team-grid{ grid-template-columns: 1fr; } }
 
   .team{
